@@ -1,0 +1,712 @@
+{
+  "schema_version": "1.0",
+  "repository_name": "mindbridge-py",
+  "snapshot_id": "sha256:bbbf8206c27b9d5ce93da77478ddca4a05018e2e5c3cb9e49cc2d1f3b400b522",
+  "scanned_at": "2026-08-17T10:29:10.060444Z",
+  "git": {
+    "available": false,
+    "branch": null,
+    "commit": null,
+    "dirty": null,
+    "note": null
+  },
+  "languages": {
+    "CSS": 1,
+    "Dockerfile": 1,
+    "HTML": 3,
+    "JSON": 1,
+    "JavaScript": 3,
+    "Markdown": 19,
+    "Python": 49,
+    "Shell": 4,
+    "YAML": 2
+  },
+  "frameworks": [
+    "ChromaDB",
+    "FastAPI",
+    "Pydantic",
+    "Redis",
+    "SQLAlchemy"
+  ],
+  "entrypoints": [
+    "app/harness/runner.py",
+    "app/main.py",
+    "app/mcp_tools/server.py",
+    "app/rag_eval/runner.py"
+  ],
+  "dependency_files": [
+    "requirements.txt"
+  ],
+  "test_files": [
+    "tests/test_event_driven_multi_agent.py",
+    "tests/test_memory_compaction.py",
+    "tests/test_privacy_and_assessment.py",
+    "tests/test_skills.py",
+    "tests/test_tool_governance.py"
+  ],
+  "documentation_files": [
+    "README.md",
+    "app/knowledge/academic-stress-and-burnout.md",
+    "app/knowledge/adjustment-and-transition.md",
+    "app/knowledge/anxiety-panic-grounding.md",
+    "app/knowledge/campus-mental-health.md",
+    "app/knowledge/counselor-referral-and-resources.md",
+    "app/knowledge/exam-season-guidance.md",
+    "app/knowledge/low-mood-depression-support.md",
+    "app/knowledge/privacy-boundaries-and-ethics.md",
+    "app/knowledge/relationships-and-family.md",
+    "app/knowledge/risk-policy.md",
+    "app/knowledge/sleep-routine-self-care.md",
+    "skills/academic_stress_planning/SKILL.md",
+    "skills/anxiety_grounding_support/SKILL.md",
+    "skills/counselor_handoff_summary/SKILL.md",
+    "skills/high_risk_safety_plan/SKILL.md",
+    "skills/referral_resource_guidance/SKILL.md",
+    "skills/sleep_routine_support/SKILL.md",
+    "skills/supportive_response_baseline/SKILL.md"
+  ],
+  "configuration_files": [
+    ".dockerignore",
+    ".env.example",
+    ".github/workflows/test.yml",
+    ".gitignore",
+    "Dockerfile",
+    "docker-compose.yml"
+  ],
+  "files": [
+    {
+      "path": ".dockerignore",
+      "category": "CONFIGURATION",
+      "language": null,
+      "size_bytes": 197,
+      "sha256": "9d9d0cd8c170eef781234b71eb7fd1a3c60a662d39b1d41a999419ad617ca07f"
+    },
+    {
+      "path": ".env.example",
+      "category": "CONFIGURATION",
+      "language": null,
+      "size_bytes": 1575,
+      "sha256": "8b85a6d6d8213d75f11672014fd29c16c54d48b56c7bd16114119bccc8f4af42"
+    },
+    {
+      "path": ".github/workflows/test.yml",
+      "category": "CONFIGURATION",
+      "language": "YAML",
+      "size_bytes": 729,
+      "sha256": "02bb7f81cdb479b33e053807d6cbed3f25aa0e479410bdcee95f06a3459cac26"
+    },
+    {
+      "path": ".gitignore",
+      "category": "CONFIGURATION",
+      "language": null,
+      "size_bytes": 108,
+      "sha256": "c8f031ac37f4e6b856f929a5aa808540faf6760cf2efd701f7ab885e6e0cec66"
+    },
+    {
+      "path": "Dockerfile",
+      "category": "CONFIGURATION",
+      "language": "Dockerfile",
+      "size_bytes": 490,
+      "sha256": "1eb5191dbdaff8d86557f5367c38b3f104f1e11a1b18399f25edd99b281e1961"
+    },
+    {
+      "path": "README.md",
+      "category": "DOCUMENTATION",
+      "language": "Markdown",
+      "size_bytes": 15242,
+      "sha256": "8f27ee993656378a12d57955660c25dc223032a9cc45b883c594191e69b0ac83"
+    },
+    {
+      "path": "app/__init__.py",
+      "category": "SOURCE",
+      "language": "Python",
+      "size_bytes": 1,
+      "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+    },
+    {
+      "path": "app/agents/__init__.py",
+      "category": "SOURCE",
+      "language": "Python",
+      "size_bytes": 1,
+      "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+    },
+    {
+      "path": "app/agents/autonomous.py",
+      "category": "SOURCE",
+      "language": "Python",
+      "size_bytes": 27976,
+      "sha256": "39fdbb59e98af3cc2f58f868b47fc483ad3190649611e51be21e044408e4777c"
+    },
+    {
+      "path": "app/agents/coordinator.py",
+      "category": "SOURCE",
+      "language": "Python",
+      "size_bytes": 12342,
+      "sha256": "3a61daf900842b286ce2951305a53772540a6fb1658edc2243a2f05ab922b724"
+    },
+    {
+      "path": "app/agents/event_driven_runtime.py",
+      "category": "SOURCE",
+      "language": "Python",
+      "size_bytes": 7432,
+      "sha256": "98b82d546aa95f03d7ad510ff1503d9de9d34481a92026199e75d9d3c7c829df"
+    },
+    {
+      "path": "app/agents/events.py",
+      "category": "SOURCE",
+      "language": "Python",
+      "size_bytes": 7888,
+      "sha256": "b5cf5a8e065bae93ed8480c4493bdae3648be588e50f739d43ec68bc98c49282"
+    },
+    {
+      "path": "app/agents/factory.py",
+      "category": "SOURCE",
+      "language": "Python",
+      "size_bytes": 861,
+      "sha256": "4de5963db4bd04bd84644c2c94b11094957000d9a8e6ca4256017137c806dab9"
+    },
+    {
+      "path": "app/agents/harness.py",
+      "category": "SOURCE",
+      "language": "Python",
+      "size_bytes": 5894,
+      "sha256": "bd4f9d1367dcb205a77267e9b1cf2f506795a3fca4e74e0c1cd80f34208ddaaf"
+    },
+    {
+      "path": "app/agents/registry.py",
+      "category": "SOURCE",
+      "language": "Python",
+      "size_bytes": 2403,
+      "sha256": "2b4fa8037921ed51c9a6f0a758fcfc785e0d8f716b062dc84ea5207e788a9c0a"
+    },
+    {
+      "path": "app/agents/result.py",
+      "category": "SOURCE",
+      "language": "Python",
+      "size_bytes": 950,
+      "sha256": "c2cdf31ed6f82fd746d363d3d4a82c8527ba7171e025b0336630b75b1a1d7b49"
+    },
+    {
+      "path": "app/api/__init__.py",
+      "category": "SOURCE",
+      "language": "Python",
+      "size_bytes": 1,
+      "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+    },
+    {
+      "path": "app/api/routes.py",
+      "category": "SOURCE",
+      "language": "Python",
+      "size_bytes": 8050,
+      "sha256": "10dcc507afca48313371c3538c5c68c3a3b031f275ca620fa46889b12ba74d1e"
+    },
+    {
+      "path": "app/core/bootstrap.py",
+      "category": "SOURCE",
+      "language": "Python",
+      "size_bytes": 1153,
+      "sha256": "96d2bb0cb26b76dc33c63c9fc6bef42452d0b5b309567f1d89de268bec0fda8d"
+    },
+    {
+      "path": "app/core/config.py",
+      "category": "SOURCE",
+      "language": "Python",
+      "size_bytes": 3755,
+      "sha256": "e60a38b905815cfb1bcd7630ca67dabc30e228f1683f0ee928abe06439045de0"
+    },
+    {
+      "path": "app/core/database.py",
+      "category": "SOURCE",
+      "language": "Python",
+      "size_bytes": 707,
+      "sha256": "164a3d91d11129679ae6b355f802e7b96a5efe05dbd152132f1d1b5b906d37b5"
+    },
+    {
+      "path": "app/core/enums.py",
+      "category": "SOURCE",
+      "language": "Python",
+      "size_bytes": 910,
+      "sha256": "6491213ea9e12aee6be567b21e7e79fb6bd45f3ff58009681deb49e99390b9ec"
+    },
+    {
+      "path": "app/core/security.py",
+      "category": "SOURCE",
+      "language": "Python",
+      "size_bytes": 1636,
+      "sha256": "89fc5a805a0faf31fe0ebf267c4851fc3f1a8e09fedf9eefca986aabed025398"
+    },
+    {
+      "path": "app/harness/__init__.py",
+      "category": "SOURCE",
+      "language": "Python",
+      "size_bytes": 47,
+      "sha256": "dbc63247bee0b976605e78b4882ed8c0d9a2c9bc63a11b20468d02f57220a574"
+    },
+    {
+      "path": "app/harness/runner.py",
+      "category": "SOURCE",
+      "language": "Python",
+      "size_bytes": 29803,
+      "sha256": "cf32cd08cdf8e232929c1773394ccb1199c45bda8fc51f931954dd0bb0272964"
+    },
+    {
+      "path": "app/knowledge/academic-stress-and-burnout.md",
+      "category": "DOCUMENTATION",
+      "language": "Markdown",
+      "size_bytes": 2510,
+      "sha256": "13a94229c9de339d2cf4e2fdf01c3a971d231fc662fc1d8bcd7f63d006c1c3ef"
+    },
+    {
+      "path": "app/knowledge/adjustment-and-transition.md",
+      "category": "DOCUMENTATION",
+      "language": "Markdown",
+      "size_bytes": 2241,
+      "sha256": "1a70c05ed0c65eba1b06af8dc11e042d067b963ad76f9963788d87d6550ed2a7"
+    },
+    {
+      "path": "app/knowledge/anxiety-panic-grounding.md",
+      "category": "DOCUMENTATION",
+      "language": "Markdown",
+      "size_bytes": 2754,
+      "sha256": "e80f2e81ab975722a0935dd291b9ba7209c35c71fad40cb79ac6a2af33f6cbbb"
+    },
+    {
+      "path": "app/knowledge/campus-mental-health.md",
+      "category": "DOCUMENTATION",
+      "language": "Markdown",
+      "size_bytes": 4228,
+      "sha256": "a2f5c1f04580b0f112173522453394a7791d9f5bce982daa94d8f0bcc8da40d1"
+    },
+    {
+      "path": "app/knowledge/counselor-referral-and-resources.md",
+      "category": "DOCUMENTATION",
+      "language": "Markdown",
+      "size_bytes": 2452,
+      "sha256": "7b71f8037c9756444d90fdedc859606709019981c2c0d4b71f385d2144e729a1"
+    },
+    {
+      "path": "app/knowledge/exam-season-guidance.md",
+      "category": "DOCUMENTATION",
+      "language": "Markdown",
+      "size_bytes": 2388,
+      "sha256": "b448d023b155fc7f8c65103ad1f091aab9bdd4c855bb0bcc03861592839cfda5"
+    },
+    {
+      "path": "app/knowledge/low-mood-depression-support.md",
+      "category": "DOCUMENTATION",
+      "language": "Markdown",
+      "size_bytes": 2828,
+      "sha256": "fc429b6fea8cf46c6f4fb10873922250b6bf0ef95e822879a593ba61243472f2"
+    },
+    {
+      "path": "app/knowledge/privacy-boundaries-and-ethics.md",
+      "category": "DOCUMENTATION",
+      "language": "Markdown",
+      "size_bytes": 2447,
+      "sha256": "4871414f7dc61ec6f3166f6d932add0dd08f4d7719930842f1993d09ff5fa91e"
+    },
+    {
+      "path": "app/knowledge/relationships-and-family.md",
+      "category": "DOCUMENTATION",
+      "language": "Markdown",
+      "size_bytes": 2377,
+      "sha256": "f3aa3e764d60bb17be93c39f43eaf1cf0bebc66d648650ac117575c7ff1a6296"
+    },
+    {
+      "path": "app/knowledge/risk-policy.md",
+      "category": "DOCUMENTATION",
+      "language": "Markdown",
+      "size_bytes": 4149,
+      "sha256": "e717ad9c95d3f47c13393610f12717e940a98c8d99d0ab76883a4704f398e009"
+    },
+    {
+      "path": "app/knowledge/sleep-routine-self-care.md",
+      "category": "DOCUMENTATION",
+      "language": "Markdown",
+      "size_bytes": 2527,
+      "sha256": "3cafe76bc0224dfc42d6c935e7300edfa9f51ef5fb901fef74775b97e001ef1b"
+    },
+    {
+      "path": "app/main.py",
+      "category": "SOURCE",
+      "language": "Python",
+      "size_bytes": 1437,
+      "sha256": "c9b3e750e6065d89b9065b0378fde8735c8382970c7da3e547b70eda691a6fbc"
+    },
+    {
+      "path": "app/mcp_tools/__init__.py",
+      "category": "SOURCE",
+      "language": "Python",
+      "size_bytes": 1,
+      "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+    },
+    {
+      "path": "app/mcp_tools/server.py",
+      "category": "SOURCE",
+      "language": "Python",
+      "size_bytes": 3656,
+      "sha256": "11b5dae8417989c5e7afc9834cd421874d30366265c482acd29a3311c7ae9171"
+    },
+    {
+      "path": "app/models/__init__.py",
+      "category": "SOURCE",
+      "language": "Python",
+      "size_bytes": 1,
+      "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+    },
+    {
+      "path": "app/models/entities.py",
+      "category": "SOURCE",
+      "language": "Python",
+      "size_bytes": 8896,
+      "sha256": "e1b83d1ddec3168b3c52fcd200e65e72122135e4d4cce660f5eb90bad8990fad"
+    },
+    {
+      "path": "app/rag_eval/__init__.py",
+      "category": "SOURCE",
+      "language": "Python",
+      "size_bytes": 1,
+      "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+    },
+    {
+      "path": "app/rag_eval/mindbridge-rag-eval.json",
+      "category": "SOURCE",
+      "language": "JSON",
+      "size_bytes": 15841,
+      "sha256": "989db8636d1f44e4cba4dfeffc141b5de27c10145c19cb1aea205f156e095e2e"
+    },
+    {
+      "path": "app/rag_eval/runner.py",
+      "category": "SOURCE",
+      "language": "Python",
+      "size_bytes": 4017,
+      "sha256": "af44a409ad2885ca2d932ec13bfd6180b30c7fd471b3d3076735c462d6dc35ca"
+    },
+    {
+      "path": "app/schemas/__init__.py",
+      "category": "SOURCE",
+      "language": "Python",
+      "size_bytes": 1,
+      "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+    },
+    {
+      "path": "app/schemas/dtos.py",
+      "category": "SOURCE",
+      "language": "Python",
+      "size_bytes": 3153,
+      "sha256": "a9147c24aa2961dfaf5e6947159287fa49a32a40b8de34c73f84a7ca544c72d7"
+    },
+    {
+      "path": "app/services/agent_models.py",
+      "category": "SOURCE",
+      "language": "Python",
+      "size_bytes": 2988,
+      "sha256": "4afc22c45d2aa8202cf4bc37dfaf4a7f8ef463e2ee1793bbda582f1252762cb3"
+    },
+    {
+      "path": "app/services/ai.py",
+      "category": "SOURCE",
+      "language": "Python",
+      "size_bytes": 10718,
+      "sha256": "b01519e0b0a23c0578d080f2c7c2ce53bcd9c006845c1e781230f856bd3d5978"
+    },
+    {
+      "path": "app/services/assessment.py",
+      "category": "SOURCE",
+      "language": "Python",
+      "size_bytes": 3013,
+      "sha256": "01c88e82967af28094782ffe8488a3c5e608d4fda8b47594092f6dba2137729d"
+    },
+    {
+      "path": "app/services/chat.py",
+      "category": "SOURCE",
+      "language": "Python",
+      "size_bytes": 1844,
+      "sha256": "9960c91b2751bcb7bfe4698856064dc44ceadcd241f62b5333eb5896e9d88233"
+    },
+    {
+      "path": "app/services/knowledge.py",
+      "category": "SOURCE",
+      "language": "Python",
+      "size_bytes": 19190,
+      "sha256": "d857771eace0834986d1f84bf06c8d9bd6167ae1878ee0315112888b3f777efa"
+    },
+    {
+      "path": "app/services/mcp_client.py",
+      "category": "SOURCE",
+      "language": "Python",
+      "size_bytes": 3497,
+      "sha256": "8f7d1a4c0ed5e395f6e380304219b332f999cd83777c3cea846d571532710521"
+    },
+    {
+      "path": "app/services/memory.py",
+      "category": "SOURCE",
+      "language": "Python",
+      "size_bytes": 6957,
+      "sha256": "7f35001cd2dc4db1330bc7952f59bfc083703eecd8ca37f37c4b088457ceb37f"
+    },
+    {
+      "path": "app/services/model_assets.py",
+      "category": "SOURCE",
+      "language": "Python",
+      "size_bytes": 977,
+      "sha256": "cd763f0d58c5479888d88638043cac186bfdf6516d0f6286b197c16fa08fbcb2"
+    },
+    {
+      "path": "app/services/privacy.py",
+      "category": "SOURCE",
+      "language": "Python",
+      "size_bytes": 484,
+      "sha256": "25dfe7366ee24c9cc9216bfbb577052cad3f4c4ac3a27189b730f6e39625b634"
+    },
+    {
+      "path": "app/services/report.py",
+      "category": "SOURCE",
+      "language": "Python",
+      "size_bytes": 7515,
+      "sha256": "ea2e17046726fe1a20ae60dba12bf6e78b6c1cda476603b445d409dcd74751a5"
+    },
+    {
+      "path": "app/services/skills.py",
+      "category": "SOURCE",
+      "language": "Python",
+      "size_bytes": 9662,
+      "sha256": "7c263cb133ba00b9c5edaef1249227e7e58e53b31fe32348e5514b0fb4b274c9"
+    },
+    {
+      "path": "app/services/tool_governance.py",
+      "category": "SOURCE",
+      "language": "Python",
+      "size_bytes": 4158,
+      "sha256": "6c76e9665d824a289e21531b23a543e7dbd652f59ddafe6ae61592525fe03349"
+    },
+    {
+      "path": "app/services/tool_queue.py",
+      "category": "SOURCE",
+      "language": "Python",
+      "size_bytes": 11209,
+      "sha256": "6cf634b6fd69dc65881852ab1254d0050190e4f4497085ec4dd0d7c5ebe6af04"
+    },
+    {
+      "path": "app/services/tools.py",
+      "category": "SOURCE",
+      "language": "Python",
+      "size_bytes": 10061,
+      "sha256": "d1ae73bbef6a34ed5502c646ead2d65d9cbe2cad7ae3caa51f73ed094abc2d0f"
+    },
+    {
+      "path": "app/services/trace.py",
+      "category": "SOURCE",
+      "language": "Python",
+      "size_bytes": 3541,
+      "sha256": "3beb2a2fcb04bc74d3f440d4ea4749c111f418f33762260f8c4851c6df632bda"
+    },
+    {
+      "path": "app/services/vector_store.py",
+      "category": "SOURCE",
+      "language": "Python",
+      "size_bytes": 7412,
+      "sha256": "332561b1b84b89d09d46b4b58bd0fc8782b73bf38fcdc24909736df7f0ef352d"
+    },
+    {
+      "path": "app/static/admin.html",
+      "category": "SOURCE",
+      "language": "HTML",
+      "size_bytes": 7176,
+      "sha256": "b5ca4d16c913102ccf1af998b732dd2f183cefaa93bab0b65347e1983e212b83"
+    },
+    {
+      "path": "app/static/admin.js",
+      "category": "SOURCE",
+      "language": "JavaScript",
+      "size_bytes": 21479,
+      "sha256": "493073b9d7480eace161b790d7f0d1942c5b4c6dcafd3e2cbe871b4da2c55c55"
+    },
+    {
+      "path": "app/static/app.js",
+      "category": "SOURCE",
+      "language": "JavaScript",
+      "size_bytes": 2957,
+      "sha256": "e78a4b5be8de0a95fac2d028853eaff80395be914ffa6b025a7e6cf8742675f4"
+    },
+    {
+      "path": "app/static/favicon.svg",
+      "category": "SOURCE",
+      "language": null,
+      "size_bytes": 205,
+      "sha256": "84b938295984498e6bf6265bb80a0cdd41d13dc6a9cdb9b65db29bc47238d8de"
+    },
+    {
+      "path": "app/static/index.html",
+      "category": "SOURCE",
+      "language": "HTML",
+      "size_bytes": 2033,
+      "sha256": "31fd50b09cd9c54534fb10d52bd010534da597ca9963e0471471839aa814715e"
+    },
+    {
+      "path": "app/static/student.html",
+      "category": "SOURCE",
+      "language": "HTML",
+      "size_bytes": 5877,
+      "sha256": "eebd6d5938e97aaa75ca9d36335f6cba527b1469ff8559909d8402f8d280a6ff"
+    },
+    {
+      "path": "app/static/student.js",
+      "category": "SOURCE",
+      "language": "JavaScript",
+      "size_bytes": 7298,
+      "sha256": "58fd9bb961dc9f9874333e2f17b2f9dc9a8275c23a8da3003583951be25bb9e3"
+    },
+    {
+      "path": "app/static/styles.css",
+      "category": "SOURCE",
+      "language": "CSS",
+      "size_bytes": 28047,
+      "sha256": "f310f0f0c6c7a336c47ee7ed7d07d9a3b03fa94c4e87698095ef74392eb5d8c2"
+    },
+    {
+      "path": "docker-compose.yml",
+      "category": "CONFIGURATION",
+      "language": "YAML",
+      "size_bytes": 2158,
+      "sha256": "7600435efc6a9c792a373d8cdb00274db8e0968673b82521e12b8897e84364e9"
+    },
+    {
+      "path": "models/mindbridge-qwen2.5-7b-ft/Modelfile",
+      "category": "SOURCE",
+      "language": null,
+      "size_bytes": 1034,
+      "sha256": "8f14480c6f96ac59b293127bcf6f0fc8f7f613bed3fb4ec396201099eaaf5041"
+    },
+    {
+      "path": "requirements.txt",
+      "category": "DEPENDENCY",
+      "language": null,
+      "size_bytes": 258,
+      "sha256": "a5fe52c1af7af23b5f690057b8c56c6f085331aae2eec38050a8b8eaf87da51c"
+    },
+    {
+      "path": "scripts/create-finetuned-model.sh",
+      "category": "SOURCE",
+      "language": "Shell",
+      "size_bytes": 1375,
+      "sha256": "8161c424983e4f2cfd45617ae5fe1763908f7051e7c6a93e0bc240313a405713"
+    },
+    {
+      "path": "scripts/package-release.sh",
+      "category": "SOURCE",
+      "language": "Shell",
+      "size_bytes": 1502,
+      "sha256": "8a822237460f6c7b01ce632086fa084bb40819cacc538bb66a758d545ff92513"
+    },
+    {
+      "path": "scripts/run-dev.sh",
+      "category": "SOURCE",
+      "language": "Shell",
+      "size_bytes": 363,
+      "sha256": "e96f62de58d2dbcc1822a05082970d4fb907754dce620b9f2f78a5a7696aa2ef"
+    },
+    {
+      "path": "scripts/start-ollama.sh",
+      "category": "SOURCE",
+      "language": "Shell",
+      "size_bytes": 800,
+      "sha256": "cffcb780f2cb65744c893ff2e1cd53a066f93719f4c0afda31a82c529aab0e90"
+    },
+    {
+      "path": "skills/academic_stress_planning/SKILL.md",
+      "category": "DOCUMENTATION",
+      "language": "Markdown",
+      "size_bytes": 677,
+      "sha256": "6712e63ffa7343cdee0be8136b4e6dd13b6f642b106b8b63d55dbc5b02ea77d1"
+    },
+    {
+      "path": "skills/anxiety_grounding_support/SKILL.md",
+      "category": "DOCUMENTATION",
+      "language": "Markdown",
+      "size_bytes": 773,
+      "sha256": "ae2e1bd7f73fb188411657d7c8c7929ad0d559c7c7ce65e9a2b39d02f294b5fc"
+    },
+    {
+      "path": "skills/counselor_handoff_summary/SKILL.md",
+      "category": "DOCUMENTATION",
+      "language": "Markdown",
+      "size_bytes": 1060,
+      "sha256": "d1a1713d94f383b85b9708e4c8862991ea132f7842cc2570a0b6fc5543d68b22"
+    },
+    {
+      "path": "skills/high_risk_safety_plan/SKILL.md",
+      "category": "DOCUMENTATION",
+      "language": "Markdown",
+      "size_bytes": 1082,
+      "sha256": "d46f27e8bafd3797db7ef20595abb69dd2b58ed4ccfd556a39dd016e68eedf2b"
+    },
+    {
+      "path": "skills/referral_resource_guidance/SKILL.md",
+      "category": "DOCUMENTATION",
+      "language": "Markdown",
+      "size_bytes": 810,
+      "sha256": "fa1a9ce04d8af72e1cd354a81f9074733b0534db7605a2b2c1f719331072f08d"
+    },
+    {
+      "path": "skills/sleep_routine_support/SKILL.md",
+      "category": "DOCUMENTATION",
+      "language": "Markdown",
+      "size_bytes": 750,
+      "sha256": "e31896fba55659a260229669d4e8c82131aada18818891457c7b2b8c74bf62ad"
+    },
+    {
+      "path": "skills/supportive_response_baseline/SKILL.md",
+      "category": "DOCUMENTATION",
+      "language": "Markdown",
+      "size_bytes": 886,
+      "sha256": "cf13109fa7da87df3beb9446f70883ce579153c11bf89cba570a8df3369db891"
+    },
+    {
+      "path": "tests/test_event_driven_multi_agent.py",
+      "category": "TEST",
+      "language": "Python",
+      "size_bytes": 5175,
+      "sha256": "a7a93966c46b1ccdc850148abc935a0031d37a6f5e3bdc48f3a6e7f7a005e9ec"
+    },
+    {
+      "path": "tests/test_memory_compaction.py",
+      "category": "TEST",
+      "language": "Python",
+      "size_bytes": 1721,
+      "sha256": "844d262735756c670643beb1255cc9b2566ee69dea5b07db86983676208922d4"
+    },
+    {
+      "path": "tests/test_privacy_and_assessment.py",
+      "category": "TEST",
+      "language": "Python",
+      "size_bytes": 1618,
+      "sha256": "ca4337a3557e15511ce49f6689700867381d1563fb64323ca08d6fc8a48c6381"
+    },
+    {
+      "path": "tests/test_skills.py",
+      "category": "TEST",
+      "language": "Python",
+      "size_bytes": 1771,
+      "sha256": "b8a81aef23c1a4a2b4d44fc5ae1a54fd564d7123afb4a6c73d9cc82a0f5bda85"
+    },
+    {
+      "path": "tests/test_tool_governance.py",
+      "category": "TEST",
+      "language": "Python",
+      "size_bytes": 1357,
+      "sha256": "fb8eb03970d3c68e4b1a5b29c683710d8594f4e33bf7510a263170d9e85b7c5c"
+    }
+  ],
+  "statistics": {
+    "visited_files": 90,
+    "indexed_files": 89,
+    "ignored_directories": 14,
+    "skipped_sensitive": 0,
+    "skipped_binary": 0,
+    "skipped_too_large": 1,
+    "skipped_unreadable": 0,
+    "skipped_symlinks": 0
+  },
+  "warnings": []
+}
