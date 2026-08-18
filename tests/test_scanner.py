@@ -8,6 +8,7 @@ def build_demo_repository(root: Path) -> None:
     (root / "src" / "demo").mkdir(parents=True)
     (root / "tests").mkdir()
     (root / ".venv").mkdir()
+    (root / ".vibeproof").mkdir()
     (root / ".git" / "refs" / "heads").mkdir(parents=True)
     (root / "pyproject.toml").write_text(
         '[project]\nname = "demo"\ndependencies = ["fastapi>=0.116", "sqlalchemy>=2"]\n',
@@ -22,6 +23,7 @@ def build_demo_repository(root: Path) -> None:
     (root / ".env").write_text("TOKEN=do-not-index\n", encoding="utf-8")
     (root / ".env.example").write_text("TOKEN=\n", encoding="utf-8")
     (root / ".venv" / "secret.py").write_text("SHOULD_NOT_BE_INDEXED = True\n", encoding="utf-8")
+    (root / ".vibeproof" / "index.sqlite3").write_bytes(b"local source index")
     (root / "logo.png").write_bytes(b"\x89PNG\x00binary")
     (root / ".git" / "HEAD").write_text("ref: refs/heads/main\n", encoding="utf-8")
     (root / ".git" / "refs" / "heads" / "main").write_text("a" * 40 + "\n", encoding="utf-8")
@@ -52,6 +54,7 @@ def test_scanner_builds_stable_manifest_without_secrets(tmp_path: Path) -> None:
     indexed_paths = {item.path for item in first.files}
     assert ".env" not in indexed_paths
     assert ".venv/secret.py" not in indexed_paths
+    assert ".vibeproof/index.sqlite3" not in indexed_paths
     assert "logo.png" not in indexed_paths
     assert first.statistics.skipped_sensitive == 1
     assert first.statistics.skipped_binary == 1

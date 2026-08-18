@@ -1,0 +1,39 @@
+{
+  "repository_name": "mindbridge-py",
+  "snapshot_id": "sha256:bbbf8206c27b9d5ce93da77478ddca4a05018e2e5c3cb9e49cc2d1f3b400b522",
+  "indexed_files": 49,
+  "symbol_count": 489,
+  "chunk_count": 575,
+  "import_count": 520,
+  "warnings": [],
+  "validation_queries": [
+    {
+      "query": "stream_chat",
+      "top_path": "app/services/chat.py",
+      "top_symbol": "ChatService.stream_chat",
+      "start_line": 25,
+      "end_line": 44
+    },
+    {
+      "query": "AgentHarness",
+      "top_path": "app/agents/harness.py",
+      "top_symbol": "MindBridgeAgentHarness",
+      "start_line": 49,
+      "end_line": 144
+    },
+    {
+      "query": "EventDrivenAgentRuntimeService",
+      "top_path": "app/agents/event_driven_runtime.py",
+      "top_symbol": "EventDrivenAgentRuntimeService",
+      "start_line": 33,
+      "end_line": 152
+    },
+    {
+      "query": "redis",
+      "top_path": "app/services/memory.py",
+      "top_symbol": "RedisShortTermMemoryStore",
+      "start_line": 25,
+      "end_line": 116
+    }
+  ]
+}

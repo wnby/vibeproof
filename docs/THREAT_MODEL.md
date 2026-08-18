@@ -24,6 +24,16 @@ may contain instructions intended to manipulate an agent.
 - expose API scanning only beneath an explicitly configured workspace root
 - omit absolute local paths and source contents from the manifest
 
+## Day 2 source-index controls
+
+- only index Python files already accepted by the scanner
+- verify each file hash against the manifest before parsing
+- parse with `ast` without importing or executing target modules
+- degrade syntax errors to bounded line chunks instead of evaluating code
+- store source chunks only in the local `.vibeproof/index.sqlite3` database
+- ignore `.vibeproof` during scans and exclude it from Git
+- bound excerpts returned by search; terminal output should still be reviewed before sharing
+
 ## Later command-execution controls
 
 Runtime verification is not part of Day 1. Before it is enabled, VibeProof must add:

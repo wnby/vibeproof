@@ -27,6 +27,7 @@ IGNORED_DIRECTORIES = frozenset(
         ".ruff_cache",
         ".tox",
         ".venv",
+        ".vibeproof",
         ".vscodecounter",
         "__pycache__",
         "build",
