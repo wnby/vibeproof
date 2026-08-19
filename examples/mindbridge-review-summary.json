@@ -1,0 +1,14 @@
+{
+  "repository": "mindbridge-py",
+  "takeover_status": "COMPLETED",
+  "learning_status": "SOURCE_GROUNDED",
+  "runtime_status": "PLANNED",
+  "learning_units": 4,
+  "quiz_questions": 4,
+  "review_status": "PARTIAL",
+  "review_mode": "STRUCTURE_ONLY",
+  "answered_questions": 1,
+  "semantically_assessed_questions": 0,
+  "rejected_assessments": 0,
+  "note": "The mock reviewer validated answer and evidence structure without claiming semantic mastery."
+}

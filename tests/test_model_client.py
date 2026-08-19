@@ -4,6 +4,7 @@ import pytest
 
 from vibeproof.model_client import (
     MockAnalystModelClient,
+    MockAnswerReviewModelClient,
     MockTutorModelClient,
     ModelConfigurationError,
     ModelMessage,
@@ -59,6 +60,25 @@ def test_model_factory_creates_task_specific_mock_tutor() -> None:
 
     assert isinstance(client, MockTutorModelClient)
     assert client.model == "deterministic-tutor-v1"
+
+
+def test_model_factory_creates_structure_only_mock_reviewer() -> None:
+    client = create_model_client("mock", task="review")
+    state = {
+        "question": {"question_id": "q1", "evidence_ids": ["chunk:one"]},
+        "learner_answer": "An answer",
+        "source_evidence": [],
+    }
+
+    result = json.loads(
+        client.complete(
+            [ModelMessage(role="user", content=f"ANSWER_REVIEW_STATE_JSON:\n{json.dumps(state)}")]
+        )
+    )
+
+    assert isinstance(client, MockAnswerReviewModelClient)
+    assert result["score"] is None
+    assert result["evidence_ids"] == ["chunk:one"]
 
 
 def test_model_factory_requires_model_for_network_provider(monkeypatch) -> None:

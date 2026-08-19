@@ -143,3 +143,58 @@ def test_takeover_cli_runs_unified_plan_only_workflow(tmp_path: Path) -> None:
     assert "## Recommended learning path" in rendered
     assert "## Source-grounded quiz" in rendered
     assert "RUNTIME_PLAN" in rendered
+
+
+def test_quiz_and_review_cli_close_learning_loop(tmp_path: Path) -> None:
+    repository = tmp_path / "repository"
+    repository.mkdir()
+    (repository / "main.py").write_text(
+        "def repository_entrypoint() -> str:\n    return 'ready'\n",
+        encoding="utf-8",
+    )
+    database = tmp_path / "state" / "index.sqlite3"
+    takeover_path = tmp_path / "reports" / "takeover.json"
+    answers_path = tmp_path / "reports" / "answers.json"
+    review_path = tmp_path / "reports" / "review.md"
+
+    assert main(
+        [
+            "takeover",
+            str(repository),
+            "--database",
+            str(database),
+            "--provider",
+            "mock",
+            "--format",
+            "json",
+            "--output",
+            str(takeover_path),
+        ]
+    ) == 0
+    assert main(["quiz", str(takeover_path), "--output", str(answers_path)]) == 0
+    submission = json.loads(answers_path.read_text(encoding="utf-8"))
+    submission["answers"][0]["answer"] = "The function is the repository entrypoint and returns ready."
+    answers_path.write_text(json.dumps(submission), encoding="utf-8")
+
+    exit_code = main(
+        [
+            "review",
+            str(takeover_path),
+            str(answers_path),
+            "--database",
+            str(database),
+            "--provider",
+            "mock",
+            "--format",
+            "markdown",
+            "--output",
+            str(review_path),
+        ]
+    )
+
+    assert exit_code == 0
+    rendered = review_path.read_text(encoding="utf-8")
+    assert "# Learning review" in rendered
+    assert "Review mode: `STRUCTURE_ONLY`" in rendered
+    assert "Answered: `1/1`" in rendered
+    assert "Semantically assessed: `0/1`" in rendered

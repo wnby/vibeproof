@@ -7,10 +7,18 @@ import sys
 from pathlib import Path
 
 from vibeproof.analyst import AnalystPolicy, RepositoryAnalystAgent
+from vibeproof.answer_reviewer import AnswerReviewAgent
 from vibeproof.coordinator import TakeoverCoordinator, TakeoverPolicy
 from vibeproof.evidence_store import EvidenceStore, IndexNotFoundError
 from vibeproof.model_client import ModelClientError, create_model_client
+from vibeproof.quiz import (
+    create_quiz_submission,
+    load_quiz_submission,
+    load_takeover_report,
+    write_json,
+)
 from vibeproof.reporting import render_architecture_report
+from vibeproof.review_reporting import render_answer_review
 from vibeproof.runtime import RuntimePolicy, RuntimeVerifier
 from vibeproof.runtime_reporting import render_runtime_report
 from vibeproof.scanner import RepositoryScanner, ScanPolicy
@@ -107,6 +115,24 @@ def build_parser() -> argparse.ArgumentParser:
     takeover_parser.add_argument("--output-limit", type=int, default=20_000)
     takeover_parser.add_argument("--format", choices=("json", "markdown"), default="json")
     takeover_parser.add_argument("--output", "-o", type=Path, help="write the takeover report to this path")
+
+    quiz_parser = subparsers.add_parser("quiz", help="create an answer template from a JSON takeover report")
+    quiz_parser.add_argument("report", type=Path, help="JSON takeover report")
+    quiz_parser.add_argument("--output", "-o", type=Path, required=True, help="write the editable JSON answer template")
+
+    review_parser = subparsers.add_parser("review", help="review submitted answers against indexed source evidence")
+    review_parser.add_argument("report", type=Path, help="JSON takeover report used to create the quiz")
+    review_parser.add_argument("submission", type=Path, help="completed JSON answer template")
+    review_parser.add_argument("--database", type=Path, default=DEFAULT_DATABASE, help="local SQLite index path")
+    review_parser.add_argument(
+        "--provider",
+        choices=("mock", "openai-compatible", "ollama"),
+        default=os.getenv("VIBEPROOF_AI_PROVIDER", "mock"),
+    )
+    review_parser.add_argument("--model", default=None, help="model name; may also use VIBEPROOF_AI_MODEL")
+    review_parser.add_argument("--base-url", default=None, help="model endpoint; may also use VIBEPROOF_AI_BASE_URL")
+    review_parser.add_argument("--format", choices=("json", "markdown"), default="markdown")
+    review_parser.add_argument("--output", "-o", type=Path, help="write the review report instead of printing it")
 
     serve_parser = subparsers.add_parser("serve", help="run the local FastAPI service")
     serve_parser.add_argument("--host", default="127.0.0.1")
@@ -251,12 +277,47 @@ def main(argv: list[str] | None = None) -> int:
                 _configure_stdout_utf8()
                 print(rendered.rstrip())
             return 0 if report.status == TakeoverStatus.COMPLETED else 1
+        if args.command == "quiz":
+            report = load_takeover_report(args.report)
+            submission = create_quiz_submission(report)
+            write_json(args.output, submission)
+            return 0
+        if args.command == "review":
+            takeover = load_takeover_report(args.report)
+            submission = load_quiz_submission(args.submission)
+            model = create_model_client(
+                provider=args.provider,
+                model=args.model,
+                base_url=args.base_url,
+                task="review",
+            )
+            report = AnswerReviewAgent(EvidenceStore(args.database), model).run(takeover, submission)
+            rendered = (
+                report.model_dump_json(indent=2)
+                if args.format == "json"
+                else render_answer_review(report, takeover)
+            )
+            if args.output:
+                output = args.output.expanduser().resolve()
+                output.parent.mkdir(parents=True, exist_ok=True)
+                output.write_text(rendered.rstrip() + "\n", encoding="utf-8")
+            else:
+                _configure_stdout_utf8()
+                print(rendered.rstrip())
+            return 0 if report.status.value in {"COMPLETED", "PARTIAL"} else 1
         if args.command == "serve":
             import uvicorn
 
             uvicorn.run("vibeproof.api:app", host=args.host, port=args.port)
             return 0
-    except (IndexNotFoundError, ModelClientError, NotADirectoryError, OSError, PermissionError, ValueError) as exc:
+    except (
+        IndexNotFoundError,
+        ModelClientError,
+        NotADirectoryError,
+        OSError,
+        PermissionError,
+        ValueError,
+    ) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
     parser.error(f"unknown command: {args.command}")

@@ -146,6 +146,29 @@ class MockTutorModelClient:
         )
 
 
+class MockAnswerReviewModelClient:
+    """Validate answer-review orchestration without pretending to understand the answer."""
+
+    provider = "mock"
+    model = "structure-only-reviewer-v1"
+
+    def complete(self, messages: list[ModelMessage]) -> str:
+        state = _extract_review_state(messages)
+        question = state.get("question", {})
+        question_id = question.get("question_id", "unknown") if isinstance(question, dict) else "unknown"
+        evidence_ids = question.get("evidence_ids", []) if isinstance(question, dict) else []
+        return json.dumps(
+            {
+                "question_id": question_id,
+                "score": None,
+                "feedback": "Structure-only mock review; semantic scoring requires a configured model.",
+                "strengths": [],
+                "gaps": [],
+                "evidence_ids": evidence_ids,
+            }
+        )
+
+
 class OpenAICompatibleModelClient:
     provider = "openai-compatible"
 
@@ -233,10 +256,15 @@ def create_model_client(
 ) -> ModelClient:
     normalized = provider.strip().lower()
     normalized_task = task.strip().lower()
-    if normalized_task not in {"analyst", "tutor"}:
-        raise ModelConfigurationError("task must be one of: analyst, tutor")
+    if normalized_task not in {"analyst", "tutor", "review"}:
+        raise ModelConfigurationError("task must be one of: analyst, tutor, review")
     if normalized == "mock":
-        return MockAnalystModelClient() if normalized_task == "analyst" else MockTutorModelClient()
+        clients = {
+            "analyst": MockAnalystModelClient,
+            "tutor": MockTutorModelClient,
+            "review": MockAnswerReviewModelClient,
+        }
+        return clients[normalized_task]()
     resolved_model = (model or os.getenv("VIBEPROOF_AI_MODEL", "")).strip()
     if normalized == "openai-compatible":
         configured_url = os.getenv("VIBEPROOF_AI_BASE_URL", "").strip()
@@ -308,3 +336,17 @@ def _extract_tutor_state(messages: list[ModelMessage]) -> dict[str, object]:
             if isinstance(state, dict):
                 return state
     raise ModelClientError("mock provider did not receive tutor state")
+
+
+def _extract_review_state(messages: list[ModelMessage]) -> dict[str, object]:
+    marker = "ANSWER_REVIEW_STATE_JSON:\n"
+    for message in reversed(messages):
+        if message.role == "user" and marker in message.content:
+            raw = message.content.split(marker, 1)[1]
+            try:
+                state = json.loads(raw)
+            except json.JSONDecodeError as exc:
+                raise ModelClientError("mock provider received invalid answer-review state") from exc
+            if isinstance(state, dict):
+                return state
+    raise ModelClientError("mock provider did not receive answer-review state")

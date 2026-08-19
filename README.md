@@ -34,12 +34,15 @@ Implemented:
 - one-command JSON/Markdown takeover reports with a stage-by-stage execution trace
 - bounded learning-evidence selection across architecture, entrypoint, test, framework, and dependency sources
 - a `RepositoryTutorAgent` with reviewed learning units, exercises, and source-grounded quiz questions
-- task-specific offline analyst and tutor models for reproducible demos without a paid API
+- JSON answer templates bound to report, learning-plan, and source-snapshot identity
+- an `AnswerReviewAgent` with per-question source excerpts, rubric-based scoring, and citation review
+- Markdown/JSON learning progress reports with weak-unit recommendations
+- task-specific offline analyst, tutor, and structure-only reviewer models for reproducible demos without a paid API
 
 Not implemented yet:
 
 - LLM-generated architecture analysis
-- user answer evaluation and persistent learning progress
+- persistent learning progress across multiple attempts
 - arbitrary command execution or code modification
 - GitHub App integration
 - fine-tuned tool-risk model
@@ -57,6 +60,21 @@ Write the complete plan-only report as Markdown:
 uv run python -m vibeproof takeover /path/to/python-repository \
   --provider mock --format markdown --output reports/takeover.md
 ```
+
+Close the learning loop with a JSON takeover report, editable answers, and evidence-backed review:
+
+```bash
+uv run python -m vibeproof takeover /path/to/python-repository \
+  --provider mock --format json --output reports/takeover.json
+uv run python -m vibeproof quiz reports/takeover.json --output reports/answers.json
+# Fill the answer fields, then use a semantic model for grading:
+uv run python -m vibeproof review reports/takeover.json reports/answers.json \
+  --provider ollama --model your-model --format markdown --output reports/review.md
+```
+
+`--provider mock` is also available for `review`, but deliberately performs structure-only validation and returns no
+semantic score. The review reads source evidence from `--database` (default `.vibeproof/index.sqlite3`) and never runs
+or modifies the target repository.
 
 Explicitly execute the fixed test check as part of takeover:
 
@@ -186,8 +204,8 @@ validated; it does not claim that model-authored semantics were deterministicall
 3. ~~Plan-first runtime verification and command evidence~~
 4. ~~Repository takeover report and replayable workflow trace~~
 5. ~~Source-grounded learning plans and quiz generation~~
-6. Evidence-backed answer review and learning progress
+6. ~~Evidence-backed answer review and learning progress~~
 
 See [docs/MVP.md](docs/MVP.md), [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs/DAY2.md](docs/DAY2.md),
 [docs/DAY3.md](docs/DAY3.md), [docs/DAY4.md](docs/DAY4.md), [docs/DAY5.md](docs/DAY5.md), and
-[docs/DAY6.md](docs/DAY6.md).
+[docs/DAY6.md](docs/DAY6.md), and [docs/DAY7.md](docs/DAY7.md).

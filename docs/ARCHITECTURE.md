@@ -146,8 +146,34 @@ Repository path
    -> RepositoryTutorAgent + LearningPlanReviewer
    -> RuntimeVerifier
 -> TakeoverReport
--> future answer review and learning progress
+-> QuizSubmission template
+-> AnswerReviewAgent + evidence integrity review
+-> AnswerReviewReport + LearningProgress
 ```
 
 Deterministic services own file access, indexing, and command execution. Agents reason over typed artifacts and cannot
 bypass tool policy. The coordinator reports incomplete stages instead of treating partial output as a completed run.
+
+## Day 7
+
+```text
+TakeoverReport + QuizSubmission + EvidenceStore
+                    |
+             identity checks
+     report + plan + snapshot + question IDs
+                    |
+                    v
+            AnswerReviewAgent <---- review ModelClient
+       question + rubric + answer + bounded excerpts
+                    |
+          AnswerAssessmentDraft
+                    v
+     question/evidence/score contract review
+                    |
+                    v
+      AnswerReviewReport + LearningProgress
+```
+
+The answer reviewer never receives a source-search or execution capability. It can assess only the source excerpts
+already bound to the current question. The runtime derives pass/fail state from a validated score and rejects invented
+citations. The mock provider is explicitly structure-only and never emits a semantic score.

@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "report_id": "takeover:copy-from-generated-report",
+  "plan_id": "learning:copy-from-generated-report",
+  "snapshot_id": "sha256:copy-from-generated-report",
+  "answers": [
+    {
+      "question_id": "unit-1-q1",
+      "answer": "Explain the responsibility, one control or data-flow connection, and the cited source lines here."
+    }
+  ],
+  "submitted_at": null
+}
