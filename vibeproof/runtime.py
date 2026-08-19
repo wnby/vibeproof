@@ -118,7 +118,9 @@ class RuntimeVerifier:
     @staticmethod
     def _resolve_interpreter(root: Path, explicit: str | Path | None) -> _Interpreter:
         if explicit is not None:
-            executable = Path(explicit).expanduser().resolve(strict=True)
+            executable = Path(os.path.abspath(Path(explicit).expanduser()))
+            if not executable.exists():
+                raise FileNotFoundError(f"Python executable does not exist: {executable}")
             if not executable.is_file():
                 raise ValueError(f"Python executable is not a file: {executable}")
             return _Interpreter(executable, InterpreterSource.EXPLICIT, str(executable))
@@ -132,7 +134,9 @@ class RuntimeVerifier:
             if executable.is_file():
                 return _Interpreter(executable, InterpreterSource.REPOSITORY_VENV, relative.as_posix())
 
-        executable = Path(sys.executable).resolve(strict=True)
+        # Keep the venv entry path: on POSIX it is commonly a symlink, and
+        # resolving it would discard the virtual environment's site-packages.
+        executable = Path(os.path.abspath(sys.executable))
         return _Interpreter(executable, InterpreterSource.CURRENT_PROCESS, str(executable))
 
     def _execute(self, root: Path, plan: CommandPlan, executable: Path) -> RuntimeEvidence:
