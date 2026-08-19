@@ -3,8 +3,8 @@
 VibeProof is an evidence-backed onboarding and takeover agent for Python repositories. It helps a developer move from
 "the project runs" to "I can explain, verify, and safely change it."
 
-The current milestone scans a local repository without executing its code, builds a stable manifest, and creates a
-local Python source index whose search results point to concrete files, symbols, and line ranges.
+The current milestone scans a local repository, builds a stable source-evidence index, runs a bounded architecture
+analyst, and can explicitly execute a small catalog of runtime checks with auditable evidence.
 
 ## Status
 
@@ -27,12 +27,15 @@ Implemented:
 - citation integrity review against the current SQLite snapshot
 - auditable Agent traces and JSON/Markdown architecture reports
 - offline mock, OpenAI-compatible, and Ollama model providers
+- plan-first runtime verification with fixed `pytest` and `pytest --collect-only` checks
+- target-interpreter discovery, timeouts, bounded output, environment scrubbing, and before/after snapshots
+- JSON and Markdown runtime reports that preserve both passing and failing evidence
 
 Not implemented yet:
 
 - LLM-generated architecture analysis
 - source-grounded learning plans and quizzes
-- command execution or code modification
+- arbitrary command execution or code modification
 - GitHub App integration
 - fine-tuned tool-risk model
 
@@ -81,6 +84,23 @@ uv run python -m vibeproof analyze /path/to/python-repository --provider ollama
 For an OpenAI-compatible endpoint, configure `VIBEPROOF_AI_MODEL`, `VIBEPROOF_AI_BASE_URL`, and optionally
 `VIBEPROOF_AI_API_KEY`; keys are never accepted as CLI arguments.
 
+Review a runtime plan without executing repository code:
+
+```bash
+uv run python -m vibeproof verify /path/to/python-repository --check pytest
+```
+
+Execute the fixed check only after reviewing the plan:
+
+```bash
+uv run python -m vibeproof verify /path/to/python-repository --check pytest --execute
+uv run python -m vibeproof verify /path/to/python-repository --check pytest-collect --execute \
+  --format markdown --output reports/runtime.md
+```
+
+Interpreter selection is explicit `--python`, then the target repository's `.venv`, then VibeProof's current Python.
+VibeProof does not create environments, install missing packages, accept arbitrary command strings, or revert files.
+
 Write a manifest to a file:
 
 ```bash
@@ -121,9 +141,10 @@ uv run python -m pytest
 ## Safety boundary
 
 Scanning and indexing do not import target modules, install dependencies, run tests, execute Git commands, follow
-symlinks, or read common secret files. The indexer verifies scanned file hashes before parsing and keeps source contents
-in an ignored local database. Repository execution will be introduced later behind an explicit approval and audit layer.
-See [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md).
+symlinks, or read common secret files. Runtime verification is a separate, explicit `--execute` path. It uses tokenized
+arguments with no shell, a timeout, bounded output, basic credential-looking environment removal, and repository
+snapshots before and after execution. It is an evidence recorder, not a process sandbox. See
+[docs/THREAT_MODEL.md](docs/THREAT_MODEL.md).
 
 The analyst additionally limits its action, step, query, and evidence budgets. Repository snippets are untrusted prompt
 data, and every final citation is independently reloaded from the current index. `SOURCE_SUPPORTED` means provenance was
@@ -133,9 +154,9 @@ validated; it does not claim that model-authored semantics were deterministicall
 
 1. ~~Source chunks with file and line evidence~~
 2. ~~Evidence-backed architecture analysis~~
-3. Learning plans and source-grounded quizzes
-4. Approved runtime verification and tool-risk policy
+3. ~~Plan-first runtime verification and command evidence~~
+4. Learning plans and source-grounded quizzes
 5. Repository takeover report and replayable traces
 
 See [docs/MVP.md](docs/MVP.md), [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs/DAY2.md](docs/DAY2.md), and
-[docs/DAY3.md](docs/DAY3.md) for the v0.1 scope and implementation notes.
+[docs/DAY3.md](docs/DAY3.md), and [docs/DAY4.md](docs/DAY4.md) for the v0.1 scope and implementation notes.

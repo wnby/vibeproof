@@ -1,0 +1,32 @@
+{
+  "vibeproof": {
+    "check": "PYTEST",
+    "interpreter_source": "REPOSITORY_VENV",
+    "command": [
+      ".venv/Scripts/python.exe",
+      "-m",
+      "pytest",
+      "-q"
+    ],
+    "status": "PASSED",
+    "exit_code": 0,
+    "tests": "59 passed",
+    "repository_changed": false
+  },
+  "mindbridge": {
+    "check": "PYTEST_COLLECT",
+    "interpreter_source": "REPOSITORY_VENV",
+    "command": [
+      ".venv/Scripts/python.exe",
+      "-m",
+      "pytest",
+      "--collect-only",
+      "-q"
+    ],
+    "status": "FAILED",
+    "exit_code": 1,
+    "failure": "No module named pytest",
+    "repository_changed": false
+  },
+  "note": "The failing check is preserved as environment evidence; VibeProof did not install target dependencies."
+}

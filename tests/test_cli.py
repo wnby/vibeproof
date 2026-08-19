@@ -1,4 +1,5 @@
 import json
+import sys
 from pathlib import Path
 
 from vibeproof.cli import main
@@ -68,3 +69,42 @@ def test_analyze_cli_writes_mock_markdown_report(tmp_path: Path) -> None:
     assert "# Architecture report" in rendered
     assert "repository_entrypoint" in rendered
     assert "SOURCE_SUPPORTED" in rendered
+
+
+def test_verify_cli_is_plan_only_by_default(tmp_path: Path, capsys) -> None:
+    repository = tmp_path / "repository"
+    repository.mkdir()
+    (repository / "test_sample.py").write_text("def test_ok():\n    assert True\n", encoding="utf-8")
+
+    exit_code = main(["verify", str(repository), "--check", "pytest"])
+    report = json.loads(capsys.readouterr().out)
+
+    assert exit_code == 0
+    assert report["status"] == "PLANNED"
+    assert report["executed"] is False
+
+
+def test_verify_cli_executes_only_with_execute_flag(tmp_path: Path) -> None:
+    repository = tmp_path / "repository"
+    repository.mkdir()
+    (repository / "test_sample.py").write_text("def test_ok():\n    assert True\n", encoding="utf-8")
+    report_path = tmp_path / "runtime.md"
+
+    exit_code = main(
+        [
+            "verify",
+            str(repository),
+            "--execute",
+            "--python",
+            sys.executable,
+            "--format",
+            "markdown",
+            "--output",
+            str(report_path),
+        ]
+    )
+
+    assert exit_code == 0
+    rendered = report_path.read_text(encoding="utf-8")
+    assert "# Runtime verification" in rendered
+    assert "Command status: `PASSED`" in rendered

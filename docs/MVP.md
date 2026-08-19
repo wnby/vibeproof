@@ -30,7 +30,7 @@ select local repository
 - Never treats an unverified claim as verified.
 - Every accepted architecture claim links to source or command evidence.
 - Repository code is not executed during scanning.
-- Commands require an explicit policy decision and auditable approval.
+- Runtime checks require an explicit `--execute` decision and produce auditable command evidence.
 - A user can reproduce the demo without MySQL, Redis, or a paid model API.
 
 ## Core contracts

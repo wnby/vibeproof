@@ -10,8 +10,10 @@ from vibeproof.analyst import AnalystPolicy, RepositoryAnalystAgent
 from vibeproof.evidence_store import EvidenceStore, IndexNotFoundError
 from vibeproof.model_client import ModelClientError, create_model_client
 from vibeproof.reporting import render_architecture_report
+from vibeproof.runtime import RuntimePolicy, RuntimeVerifier
+from vibeproof.runtime_reporting import render_runtime_report
 from vibeproof.scanner import RepositoryScanner, ScanPolicy
-from vibeproof.schemas import EvidenceHit
+from vibeproof.schemas import EvidenceHit, RuntimeCheck, RuntimeStatus
 from vibeproof.source_index import IndexPolicy, PythonSourceIndexer
 
 DEFAULT_DATABASE = Path(".vibeproof/index.sqlite3")
@@ -61,6 +63,23 @@ def build_parser() -> argparse.ArgumentParser:
     analyze_parser.add_argument("--max-file-size", type=int, default=1_000_000)
     analyze_parser.add_argument("--format", choices=("json", "markdown"), default="json")
     analyze_parser.add_argument("--output", "-o", type=Path, help="write the report instead of printing it")
+
+    verify_parser = subparsers.add_parser("verify", help="plan or run an auditable repository test check")
+    verify_parser.add_argument("path", type=Path, help="repository root")
+    verify_parser.add_argument(
+        "--check",
+        choices=("pytest", "pytest-collect"),
+        default="pytest",
+        help="fixed check to plan or execute",
+    )
+    verify_parser.add_argument("--execute", action="store_true", help="execute repository code; default is plan only")
+    verify_parser.add_argument("--python", type=Path, help="explicit Python interpreter")
+    verify_parser.add_argument("--timeout", type=float, default=120, help="command timeout in seconds")
+    verify_parser.add_argument("--output-limit", type=int, default=20_000, help="maximum captured output characters")
+    verify_parser.add_argument("--max-files", type=int, default=5_000)
+    verify_parser.add_argument("--max-file-size", type=int, default=1_000_000)
+    verify_parser.add_argument("--format", choices=("json", "markdown"), default="json")
+    verify_parser.add_argument("--output", "-o", type=Path, help="write the verification report to this path")
 
     serve_parser = subparsers.add_parser("serve", help="run the local FastAPI service")
     serve_parser.add_argument("--host", default="127.0.0.1")
@@ -134,6 +153,28 @@ def main(argv: list[str] | None = None) -> int:
                 _configure_stdout_utf8()
                 print(rendered.rstrip())
             return 0 if report.run_status.value == "COMPLETED" else 1
+        if args.command == "verify":
+            check = RuntimeCheck.PYTEST if args.check == "pytest" else RuntimeCheck.PYTEST_COLLECT
+            policy = RuntimePolicy(
+                timeout_seconds=args.timeout,
+                output_limit_chars=args.output_limit,
+                scan_policy=ScanPolicy(max_files=args.max_files, max_file_size_bytes=args.max_file_size),
+            )
+            report = RuntimeVerifier(policy).verify(
+                args.path,
+                check=check,
+                execute=args.execute,
+                python_executable=args.python,
+            )
+            rendered = report.model_dump_json(indent=2) if args.format == "json" else render_runtime_report(report)
+            if args.output:
+                output = args.output.expanduser().resolve()
+                output.parent.mkdir(parents=True, exist_ok=True)
+                output.write_text(rendered.rstrip() + "\n", encoding="utf-8")
+            else:
+                _configure_stdout_utf8()
+                print(rendered.rstrip())
+            return 0 if report.status in {RuntimeStatus.PLANNED, RuntimeStatus.PASSED} else 1
         if args.command == "serve":
             import uvicorn
 

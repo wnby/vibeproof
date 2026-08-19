@@ -34,17 +34,24 @@ may contain instructions intended to manipulate an agent.
 - ignore `.vibeproof` during scans and exclude it from Git
 - bound excerpts returned by search; terminal output should still be reviewed before sharing
 
-## Later command-execution controls
+## Day 4 runtime boundary
 
-Runtime verification is not part of Day 1. Before it is enabled, VibeProof must add:
+Runtime checks execute untrusted repository test code and may therefore read, write, start processes, or use the
+network with the current operating-system user's permissions. Day 4 keeps this boundary visible and small:
 
-- typed command plans with no shell interpolation
-- risk classes: read-only, local execution, workspace write, destructive, external side effect, and secret access
-- path confinement and environment scrubbing
-- explicit approval for non-read-only actions
-- time, memory, and output limits
-- immutable execution evidence
-- idempotency for resumable workflows
+- default to a typed plan; require explicit `--execute` to run it
+- expose only `pytest` and `pytest --collect-only`, with tokenized arguments and `shell=False`
+- select an explicit interpreter, the target `.venv`, or the current interpreter; never install dependencies
+- run in the selected repository with a wall-clock timeout
+- bound recorded stdout and stderr
+- remove environment variables whose names look like tokens, secrets, passwords, API keys, credentials, or auth values
+- compare deterministic repository snapshots before and after execution and never silently revert changes
+- preserve non-zero exits, missing dependencies, timeouts, and launch errors as runtime evidence
+
+This is not a sandbox. It does not isolate the network, operating-system credentials, child processes, CPU, or memory.
+Use disposable environments for repositories that are not trusted enough to execute locally. Multi-user permissions,
+policy DSLs, automatic dependency installation, container orchestration, and arbitrary shell access are intentionally
+outside the Day 4 scope.
 
 ## Prompt-injection boundary
 

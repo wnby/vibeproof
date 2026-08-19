@@ -58,13 +58,41 @@ The model chooses when and what to search, but the runtime owns every capability
 citations must have been observed in this run and are reloaded from the current SQLite snapshot before acceptance.
 Model-authored claims are labeled `SOURCE_SUPPORTED`; citation validation is not presented as semantic proof.
 
+## Day 4
+
+```text
+repository + fixed check
+          |
+          v
+   RuntimeVerifier.plan
+   /       |        \
+snapshot  Python   tokenized argv
+          |
+     default: PLANNED
+          |
+    explicit --execute
+          v
+ subprocess (shell=False, timeout, bounded output)
+          |
+          v
+ RuntimeEvidence + post-run snapshot
+          |
+          v
+ RuntimeVerificationReport
+```
+
+Runtime verification is a deterministic service, not another model loop. Its command catalog contains only `pytest`
+and `pytest --collect-only`. Plans select an explicit interpreter, a target `.venv`, or the current process in that
+order. Execution never creates an environment or installs dependencies. A changed post-run snapshot is reported as
+`SNAPSHOT_CHANGED`; VibeProof records the change but does not revert user files.
+
 ## Planned agent workflow
 
 ```text
 RepositoryManifest
 -> Source evidence index
 -> RepositoryAnalystAgent
--> RuntimeVerifierAgent
+-> RuntimeVerifier
 -> TutorAgent
 -> EvidenceReviewAgent
 -> TakeoverCoordinator
