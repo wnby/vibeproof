@@ -4,7 +4,15 @@ import json
 import sqlite3
 from pathlib import Path
 
-from vibeproof.schemas import EvidenceHit, ImportEdge, SourceChunk, SourceIndexSummary, SourceSymbol, SymbolKind
+from vibeproof.schemas import (
+    EvidenceHit,
+    EvidenceReference,
+    ImportEdge,
+    SourceChunk,
+    SourceIndexSummary,
+    SourceSymbol,
+    SymbolKind,
+)
 from vibeproof.source_index import IndexedSource, query_terms
 
 
@@ -80,6 +88,17 @@ class EvidenceStore:
             warnings=list(indexed.warnings),
         )
 
+    def has_snapshot(self, snapshot_id: str) -> bool:
+        if not self.database_path.is_file():
+            return False
+        with self._connect() as connection:
+            _create_schema(connection)
+            row = connection.execute(
+                "SELECT 1 FROM snapshots WHERE snapshot_id = ?",
+                (snapshot_id,),
+            ).fetchone()
+        return row is not None
+
     def search(self, snapshot_id: str, query: str, limit: int = 5) -> list[EvidenceHit]:
         if limit < 1 or limit > 100:
             raise ValueError("limit must be between 1 and 100")
@@ -132,6 +151,40 @@ class EvidenceStore:
             )
             for score, row in scored[:limit]
         ]
+
+    def get_references(self, snapshot_id: str, chunk_ids: list[str]) -> dict[str, EvidenceReference]:
+        unique_ids = list(dict.fromkeys(chunk_ids))
+        if not unique_ids:
+            return {}
+        if len(unique_ids) > 100:
+            raise ValueError("at most 100 chunk references may be loaded at once")
+        if not self.database_path.is_file():
+            raise IndexNotFoundError("source index does not exist; run `vibeproof index` first")
+
+        placeholders = ",".join("?" for _ in unique_ids)
+        with self._connect() as connection:
+            _create_schema(connection)
+            rows = connection.execute(
+                f"""
+                SELECT chunk_id, snapshot_id, path, start_line, end_line, content_hash, symbol, symbol_kind
+                FROM chunks
+                WHERE snapshot_id = ? AND chunk_id IN ({placeholders})
+                """,
+                (snapshot_id, *unique_ids),
+            ).fetchall()
+        return {
+            row["chunk_id"]: EvidenceReference(
+                chunk_id=row["chunk_id"],
+                snapshot_id=row["snapshot_id"],
+                path=row["path"],
+                start_line=row["start_line"],
+                end_line=row["end_line"],
+                symbol=row["symbol"],
+                symbol_kind=SymbolKind(row["symbol_kind"]),
+                content_hash=row["content_hash"],
+            )
+            for row in rows
+        }
 
     def _connect(self) -> sqlite3.Connection:
         connection = sqlite3.connect(self.database_path)

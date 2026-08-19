@@ -100,3 +100,15 @@ def test_replacing_same_snapshot_is_idempotent(tmp_path: Path) -> None:
 
     assert first == second
     assert len(store.search(manifest.snapshot_id, "stream_chat", limit=100)) < 10
+
+
+def test_store_loads_bounded_references_without_source_content(tmp_path: Path) -> None:
+    store, snapshot_id = _indexed_store(tmp_path)
+    hit = store.search(snapshot_id, "stream_chat", limit=1)[0]
+
+    references = store.get_references(snapshot_id, [hit.chunk_id, hit.chunk_id, "chunk:missing"])
+
+    assert list(references) == [hit.chunk_id]
+    reference = references[hit.chunk_id]
+    assert reference.path == hit.path
+    assert not hasattr(reference, "excerpt")

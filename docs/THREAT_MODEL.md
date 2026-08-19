@@ -50,3 +50,15 @@ Runtime verification is not part of Day 1. Before it is enabled, VibeProof must 
 
 Repository text is evidence, not instruction. Future prompts must clearly delimit retrieved source, prevent repository
 content from changing tool policy, and require independent verification before claims are accepted.
+
+## Day 3 agent controls
+
+- permit only typed `SEARCH_SOURCE` and `FINAL_ANSWER` actions
+- cap steps, queries, results, evidence retained in context, and invalid actions
+- reject duplicate, empty, oversized, and over-budget queries
+- never expose shell, file-write, network, or user-selected tool names to the analyst
+- treat repository snippets as untrusted prompt data
+- do not store raw model responses or API credentials in traces and reports
+- reject citations the model did not observe during the current run
+- reload cited chunks and compare snapshot, path, lines, symbol kind, and hash
+- label model semantics `SOURCE_SUPPORTED`, not deterministically verified

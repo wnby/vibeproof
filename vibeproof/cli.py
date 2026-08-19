@@ -2,10 +2,14 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 
+from vibeproof.analyst import AnalystPolicy, RepositoryAnalystAgent
 from vibeproof.evidence_store import EvidenceStore, IndexNotFoundError
+from vibeproof.model_client import ModelClientError, create_model_client
+from vibeproof.reporting import render_architecture_report
 from vibeproof.scanner import RepositoryScanner, ScanPolicy
 from vibeproof.schemas import EvidenceHit
 from vibeproof.source_index import IndexPolicy, PythonSourceIndexer
@@ -39,6 +43,24 @@ def build_parser() -> argparse.ArgumentParser:
     search_parser.add_argument("--max-files", type=int, default=5_000)
     search_parser.add_argument("--max-file-size", type=int, default=1_000_000)
     search_parser.add_argument("--json", action="store_true", help="emit machine-readable JSON")
+
+    analyze_parser = subparsers.add_parser("analyze", help="run the evidence-grounded repository analyst agent")
+    analyze_parser.add_argument("path", type=Path, help="repository root")
+    analyze_parser.add_argument("--database", type=Path, default=DEFAULT_DATABASE, help="local SQLite index path")
+    analyze_parser.add_argument(
+        "--provider",
+        choices=("mock", "openai-compatible", "ollama"),
+        default=os.getenv("VIBEPROOF_AI_PROVIDER", "mock"),
+    )
+    analyze_parser.add_argument("--model", default=None, help="model name; may also use VIBEPROOF_AI_MODEL")
+    analyze_parser.add_argument("--base-url", default=None, help="model endpoint; may also use VIBEPROOF_AI_BASE_URL")
+    analyze_parser.add_argument("--max-steps", type=int, default=8)
+    analyze_parser.add_argument("--max-queries", type=int, default=5)
+    analyze_parser.add_argument("--search-limit", type=int, default=3)
+    analyze_parser.add_argument("--max-files", type=int, default=5_000)
+    analyze_parser.add_argument("--max-file-size", type=int, default=1_000_000)
+    analyze_parser.add_argument("--format", choices=("json", "markdown"), default="json")
+    analyze_parser.add_argument("--output", "-o", type=Path, help="write the report instead of printing it")
 
     serve_parser = subparsers.add_parser("serve", help="run the local FastAPI service")
     serve_parser.add_argument("--host", default="127.0.0.1")
@@ -89,12 +111,35 @@ def main(argv: list[str] | None = None) -> int:
             else:
                 _print_hits(hits)
             return 0
+        if args.command == "analyze":
+            scan_policy = ScanPolicy(max_files=args.max_files, max_file_size_bytes=args.max_file_size)
+            manifest = RepositoryScanner(scan_policy).scan(args.path)
+            model = create_model_client(provider=args.provider, model=args.model, base_url=args.base_url)
+            analyst_policy = AnalystPolicy(
+                max_steps=args.max_steps,
+                max_queries=args.max_queries,
+                search_limit=args.search_limit,
+            )
+            report = RepositoryAnalystAgent(
+                store=EvidenceStore(args.database),
+                model=model,
+                policy=analyst_policy,
+            ).run(manifest)
+            rendered = report.model_dump_json(indent=2) if args.format == "json" else render_architecture_report(report)
+            if args.output:
+                output = args.output.expanduser().resolve()
+                output.parent.mkdir(parents=True, exist_ok=True)
+                output.write_text(rendered.rstrip() + "\n", encoding="utf-8")
+            else:
+                _configure_stdout_utf8()
+                print(rendered.rstrip())
+            return 0 if report.run_status.value == "COMPLETED" else 1
         if args.command == "serve":
             import uvicorn
 
             uvicorn.run("vibeproof.api:app", host=args.host, port=args.port)
             return 0
-    except (IndexNotFoundError, NotADirectoryError, OSError, PermissionError, ValueError) as exc:
+    except (IndexNotFoundError, ModelClientError, NotADirectoryError, OSError, PermissionError, ValueError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
     parser.error(f"unknown command: {args.command}")

@@ -23,6 +23,10 @@ Implemented:
 - a local SQLite evidence store that is excluded from Git
 - deterministic source retrieval with bounded excerpts and content hashes
 - a real MindBridge index validation covering 49 Python files and 489 symbols
+- a bounded `RepositoryAnalystAgent` with `SEARCH_SOURCE` and `FINAL_ANSWER` actions
+- citation integrity review against the current SQLite snapshot
+- auditable Agent traces and JSON/Markdown architecture reports
+- offline mock, OpenAI-compatible, and Ollama model providers
 
 Not implemented yet:
 
@@ -53,6 +57,29 @@ uv run python -m vibeproof search /path/to/python-repository "router.post" --jso
 ```
 
 By default, source contents are stored in `.vibeproof/index.sqlite3`. Use `--database` to select another local path.
+
+Run the offline, reproducible analyst loop:
+
+```bash
+uv run python -m vibeproof analyze /path/to/python-repository --provider mock
+```
+
+Write a Markdown report:
+
+```bash
+uv run python -m vibeproof analyze /path/to/python-repository \
+  --provider mock --format markdown --output reports/architecture.md
+```
+
+Use a local Ollama model after setting its name:
+
+```bash
+export VIBEPROOF_AI_MODEL=your-local-model
+uv run python -m vibeproof analyze /path/to/python-repository --provider ollama
+```
+
+For an OpenAI-compatible endpoint, configure `VIBEPROOF_AI_MODEL`, `VIBEPROOF_AI_BASE_URL`, and optionally
+`VIBEPROOF_AI_API_KEY`; keys are never accepted as CLI arguments.
 
 Write a manifest to a file:
 
@@ -98,13 +125,17 @@ symlinks, or read common secret files. The indexer verifies scanned file hashes 
 in an ignored local database. Repository execution will be introduced later behind an explicit approval and audit layer.
 See [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md).
 
+The analyst additionally limits its action, step, query, and evidence budgets. Repository snippets are untrusted prompt
+data, and every final citation is independently reloaded from the current index. `SOURCE_SUPPORTED` means provenance was
+validated; it does not claim that model-authored semantics were deterministically proven.
+
 ## Roadmap
 
 1. ~~Source chunks with file and line evidence~~
-2. Evidence-backed architecture analysis
+2. ~~Evidence-backed architecture analysis~~
 3. Learning plans and source-grounded quizzes
 4. Approved runtime verification and tool-risk policy
 5. Repository takeover report and replayable traces
 
-See [docs/MVP.md](docs/MVP.md), [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), and [docs/DAY2.md](docs/DAY2.md) for the
-v0.1 scope and implementation notes.
+See [docs/MVP.md](docs/MVP.md), [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs/DAY2.md](docs/DAY2.md), and
+[docs/DAY3.md](docs/DAY3.md) for the v0.1 scope and implementation notes.

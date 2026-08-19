@@ -16,6 +16,7 @@ repository before changing it.
 select local repository
 -> scan structure and metadata
 -> index source with file/line evidence
+-> generate an evidence-grounded architecture analysis
 -> verify runtime facts with approved tools
 -> generate a staged learning plan
 -> ask source-grounded questions

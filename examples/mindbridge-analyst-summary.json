@@ -1,0 +1,40 @@
+{
+  "repository_name": "mindbridge-py",
+  "snapshot_id": "sha256:bbbf8206c27b9d5ce93da77478ddca4a05018e2e5c3cb9e49cc2d1f3b400b522",
+  "provider": "mock",
+  "model": "deterministic-analyst-v1",
+  "run_status": "COMPLETED",
+  "verification_status": "VERIFIED",
+  "accepted_claims": 5,
+  "rejected_claims": 0,
+  "evidence_references": 5,
+  "trace": [
+    {
+      "step": 1,
+      "action": "SEARCH_SOURCE",
+      "query": "app/harness/runner.py",
+      "returned_evidence": 3
+    },
+    {
+      "step": 2,
+      "action": "SEARCH_SOURCE",
+      "query": "app/main.py",
+      "returned_evidence": 3
+    },
+    {
+      "step": 3,
+      "action": "SEARCH_SOURCE",
+      "query": "app/mcp_tools/server.py",
+      "returned_evidence": 3
+    },
+    {
+      "step": 4,
+      "action": "FINAL_ANSWER",
+      "returned_evidence": 5
+    }
+  ],
+  "limitations": [
+    "The mock provider validates orchestration and citation integrity, not semantic architecture quality.",
+    "Target repository code was not executed."
+  ]
+}

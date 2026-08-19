@@ -35,3 +35,36 @@ def test_search_cli_explains_missing_index(tmp_path: Path, capsys) -> None:
 
     assert exit_code == 1
     assert "run `vibeproof index` first" in captured.err
+
+
+def test_analyze_cli_writes_mock_markdown_report(tmp_path: Path) -> None:
+    repository = tmp_path / "repository"
+    repository.mkdir()
+    (repository / "main.py").write_text(
+        "def repository_entrypoint() -> str:\n    return 'ready'\n",
+        encoding="utf-8",
+    )
+    database = tmp_path / "state" / "index.sqlite3"
+    report_path = tmp_path / "reports" / "architecture.md"
+    assert main(["index", str(repository), "--database", str(database)]) == 0
+
+    exit_code = main(
+        [
+            "analyze",
+            str(repository),
+            "--database",
+            str(database),
+            "--provider",
+            "mock",
+            "--format",
+            "markdown",
+            "--output",
+            str(report_path),
+        ]
+    )
+
+    assert exit_code == 0
+    rendered = report_path.read_text(encoding="utf-8")
+    assert "# Architecture report" in rendered
+    assert "repository_entrypoint" in rendered
+    assert "SOURCE_SUPPORTED" in rendered

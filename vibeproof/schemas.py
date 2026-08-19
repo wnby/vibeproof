@@ -42,6 +42,36 @@ class SymbolKind(StrEnum):
     ASYNC_METHOD = "ASYNC_METHOD"
 
 
+class ClaimType(StrEnum):
+    ENTRYPOINT = "ENTRYPOINT"
+    COMPONENT = "COMPONENT"
+    DEPENDENCY = "DEPENDENCY"
+    DATA_FLOW = "DATA_FLOW"
+    INFRASTRUCTURE = "INFRASTRUCTURE"
+    RISK = "RISK"
+    OTHER = "OTHER"
+
+
+class ClaimStatus(StrEnum):
+    VERIFIED_FACT = "VERIFIED_FACT"
+    SOURCE_SUPPORTED = "SOURCE_SUPPORTED"
+    UNSUPPORTED = "UNSUPPORTED"
+    STALE_EVIDENCE = "STALE_EVIDENCE"
+    REJECTED = "REJECTED"
+
+
+class AgentActionType(StrEnum):
+    SEARCH_SOURCE = "SEARCH_SOURCE"
+    FINAL_ANSWER = "FINAL_ANSWER"
+
+
+class AgentRunStatus(StrEnum):
+    COMPLETED = "COMPLETED"
+    MAX_STEPS = "MAX_STEPS"
+    INVALID_ACTION = "INVALID_ACTION"
+    MODEL_ERROR = "MODEL_ERROR"
+
+
 class GitSnapshot(StrictModel):
     available: bool = False
     branch: str | None = None
@@ -149,6 +179,23 @@ class EvidenceHit(StrictModel):
     excerpt: str
 
 
+class EvidenceReference(StrictModel):
+    chunk_id: str
+    snapshot_id: str
+    path: str
+    start_line: int = Field(ge=1)
+    end_line: int = Field(ge=1)
+    symbol: str | None = None
+    symbol_kind: SymbolKind
+    content_hash: str = Field(min_length=64, max_length=64)
+
+    @model_validator(mode="after")
+    def validate_line_range(self) -> EvidenceReference:
+        if self.end_line < self.start_line:
+            raise ValueError("end_line cannot be before start_line")
+        return self
+
+
 class SourceIndexSummary(StrictModel):
     repository_name: str
     snapshot_id: str
@@ -158,6 +205,67 @@ class SourceIndexSummary(StrictModel):
     import_count: int = Field(ge=0)
     database_path: str
     warnings: list[str] = Field(default_factory=list)
+
+
+class ClaimDraft(StrictModel):
+    claim: str = Field(min_length=1, max_length=1_000)
+    claim_type: ClaimType = ClaimType.OTHER
+    evidence_ids: list[str] = Field(default_factory=list, max_length=8)
+    confidence: float = Field(default=0.5, ge=0, le=1)
+
+
+class AnalysisClaim(ClaimDraft):
+    status: ClaimStatus
+    rejection_reason: str | None = None
+
+
+class AgentAction(StrictModel):
+    action: AgentActionType
+    query: str | None = Field(default=None, max_length=200)
+    summary: str | None = Field(default=None, max_length=4_000)
+    claims: list[ClaimDraft] = Field(default_factory=list, max_length=30)
+    unresolved_questions: list[str] = Field(default_factory=list, max_length=20)
+
+    @model_validator(mode="after")
+    def validate_action_payload(self) -> AgentAction:
+        if self.action == AgentActionType.SEARCH_SOURCE:
+            if not self.query or not self.query.strip():
+                raise ValueError("SEARCH_SOURCE requires a non-empty query")
+            if self.claims or self.summary or self.unresolved_questions:
+                raise ValueError("SEARCH_SOURCE may only contain action and query")
+        if self.action == AgentActionType.FINAL_ANSWER:
+            if self.query is not None:
+                raise ValueError("FINAL_ANSWER cannot contain a query")
+            if not self.summary or not self.summary.strip():
+                raise ValueError("FINAL_ANSWER requires a summary")
+        return self
+
+
+class AgentTraceStep(StrictModel):
+    step: int = Field(ge=1)
+    action: str
+    query: str | None = None
+    returned_evidence_ids: list[str] = Field(default_factory=list)
+    message: str | None = None
+    error: str | None = None
+
+
+class ArchitectureReport(StrictModel):
+    report_id: str = Field(default_factory=lambda: f"architecture:{uuid4().hex}")
+    repository_name: str
+    snapshot_id: str
+    run_status: AgentRunStatus
+    verification_status: VerificationStatus
+    provider: str
+    model: str
+    summary: str
+    claims: list[AnalysisClaim] = Field(default_factory=list)
+    rejected_claims: list[AnalysisClaim] = Field(default_factory=list)
+    evidence: list[EvidenceReference] = Field(default_factory=list)
+    unresolved_questions: list[str] = Field(default_factory=list)
+    trace: list[AgentTraceStep] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    generated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
 class Evidence(StrictModel):
