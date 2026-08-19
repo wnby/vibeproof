@@ -103,6 +103,7 @@ class TakeoverStage(StrEnum):
     SCAN = "SCAN"
     INDEX = "INDEX"
     ANALYZE = "ANALYZE"
+    LEARNING_PLAN = "LEARNING_PLAN"
     RUNTIME_PLAN = "RUNTIME_PLAN"
     RUNTIME_EXECUTION = "RUNTIME_EXECUTION"
     REPORT = "REPORT"
@@ -111,6 +112,18 @@ class TakeoverStage(StrEnum):
 class StageStatus(StrEnum):
     COMPLETED = "COMPLETED"
     FAILED = "FAILED"
+
+
+class LearningPlanStatus(StrEnum):
+    SOURCE_GROUNDED = "SOURCE_GROUNDED"
+    DEGRADED = "DEGRADED"
+    FAILED = "FAILED"
+
+
+class QuizDifficulty(StrEnum):
+    BASIC = "BASIC"
+    APPLIED = "APPLIED"
+    TRACE = "TRACE"
 
 
 class GitSnapshot(StrictModel):
@@ -309,6 +322,54 @@ class ArchitectureReport(StrictModel):
     generated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
+class LearningUnitDraft(StrictModel):
+    sequence: int = Field(ge=1, le=10)
+    title: str = Field(min_length=1, max_length=200)
+    objective: str = Field(min_length=1, max_length=600)
+    why_it_matters: str = Field(min_length=1, max_length=600)
+    exercise: str = Field(min_length=1, max_length=600)
+    evidence_ids: list[str] = Field(default_factory=list, max_length=5)
+
+
+class QuizQuestionDraft(StrictModel):
+    question_id: str = Field(min_length=1, max_length=80)
+    unit_sequence: int = Field(ge=1, le=10)
+    difficulty: QuizDifficulty
+    prompt: str = Field(min_length=1, max_length=800)
+    evaluation_points: list[str] = Field(default_factory=list, max_length=6)
+    evidence_ids: list[str] = Field(default_factory=list, max_length=5)
+
+
+class LearningPlanDraft(StrictModel):
+    summary: str = Field(min_length=1, max_length=2_000)
+    units: list[LearningUnitDraft] = Field(default_factory=list, max_length=5)
+    questions: list[QuizQuestionDraft] = Field(default_factory=list, max_length=15)
+
+
+class LearningPlan(StrictModel):
+    plan_id: str = Field(default_factory=lambda: f"learning:{uuid4().hex}")
+    repository_name: str
+    snapshot_id: str
+    status: LearningPlanStatus
+    provider: str
+    model: str
+    summary: str
+    units: list[LearningUnitDraft] = Field(default_factory=list)
+    questions: list[QuizQuestionDraft] = Field(default_factory=list)
+    evidence: list[EvidenceReference] = Field(default_factory=list)
+    rejected_items: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    generated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+    @model_validator(mode="after")
+    def validate_grounded_plan(self) -> LearningPlan:
+        if self.status == LearningPlanStatus.SOURCE_GROUNDED and not all(
+            (self.units, self.questions, self.evidence)
+        ):
+            raise ValueError("source-grounded learning plans require units, questions, and evidence")
+        return self
+
+
 class CommandPlan(StrictModel):
     plan_id: str = Field(default_factory=lambda: f"command-plan:{uuid4().hex}")
     repository_name: str
@@ -436,6 +497,7 @@ class TakeoverReport(StrictModel):
     repository: RepositorySummary | None = None
     source_index: SourceIndexSummary | None = None
     architecture: ArchitectureReport | None = None
+    learning_plan: LearningPlan | None = None
     runtime: RuntimeVerificationReport | None = None
     steps: list[TakeoverStep] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list)
@@ -444,7 +506,7 @@ class TakeoverReport(StrictModel):
     @model_validator(mode="after")
     def validate_completed_report(self) -> TakeoverReport:
         if self.status == TakeoverStatus.COMPLETED and not all(
-            (self.repository, self.source_index, self.architecture, self.runtime)
+            (self.repository, self.source_index, self.architecture, self.learning_plan, self.runtime)
         ):
             raise ValueError("completed takeover reports require every workflow artifact")
         if self.repository is not None and self.snapshot_id != self.repository.snapshot_id:

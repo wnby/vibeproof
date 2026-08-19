@@ -7,12 +7,14 @@ from time import monotonic
 
 from vibeproof.analyst import AnalystPolicy, RepositoryAnalystAgent
 from vibeproof.evidence_store import EvidenceStore, IndexNotFoundError
-from vibeproof.model_client import ModelClient, ModelClientError
+from vibeproof.model_client import MockTutorModelClient, ModelClient, ModelClientError
 from vibeproof.runtime import RuntimePolicy, RuntimeVerifier
 from vibeproof.scanner import RepositoryScanner, ScanPolicy
 from vibeproof.schemas import (
     AgentRunStatus,
     ArchitectureReport,
+    LearningPlan,
+    LearningPlanStatus,
     RepositoryManifest,
     RepositorySummary,
     RuntimeCheck,
@@ -26,6 +28,7 @@ from vibeproof.schemas import (
     TakeoverStep,
 )
 from vibeproof.source_index import IndexPolicy, PythonSourceIndexer
+from vibeproof.tutor import RepositoryTutorAgent, TutorPolicy
 
 EXPECTED_STAGE_ERRORS = (IndexNotFoundError, ModelClientError, OSError, sqlite3.Error, ValueError)
 
@@ -35,6 +38,7 @@ class TakeoverPolicy:
     scan_policy: ScanPolicy = ScanPolicy()
     index_policy: IndexPolicy = IndexPolicy()
     analyst_policy: AnalystPolicy = AnalystPolicy()
+    tutor_policy: TutorPolicy = TutorPolicy()
     runtime_policy: RuntimePolicy = RuntimePolicy()
     runtime_check: RuntimeCheck = RuntimeCheck.PYTEST
     execute_runtime: bool = False
@@ -44,13 +48,23 @@ class TakeoverPolicy:
 class TakeoverCoordinator:
     """Compose existing evidence services into one repository takeover workflow."""
 
-    def __init__(self, store: EvidenceStore, model: ModelClient, policy: TakeoverPolicy | None = None):
+    def __init__(
+        self,
+        store: EvidenceStore,
+        model: ModelClient,
+        policy: TakeoverPolicy | None = None,
+        tutor_model: ModelClient | None = None,
+    ):
         self.store = store
         self.model = model
         self.policy = policy or TakeoverPolicy()
         self.scanner = RepositoryScanner(self.policy.scan_policy)
         self.indexer = PythonSourceIndexer(self.policy.index_policy)
         self.analyst = RepositoryAnalystAgent(self.store, self.model, self.policy.analyst_policy)
+        resolved_tutor_model = tutor_model
+        if resolved_tutor_model is None:
+            resolved_tutor_model = MockTutorModelClient() if model.provider == "mock" else model
+        self.tutor = RepositoryTutorAgent(self.store, resolved_tutor_model, self.policy.tutor_policy)
         self.verifier = RuntimeVerifier(self.policy.runtime_policy)
 
     def run(self, root: str | Path) -> TakeoverReport:
@@ -85,13 +99,17 @@ class TakeoverCoordinator:
         elif analysis_error:
             warnings.append(analysis_error)
 
+        learning_plan = self._learn(manifest, architecture, steps)
+        if learning_plan is not None:
+            warnings.extend(learning_plan.warnings)
+
         runtime, runtime_error = self._runtime(root, steps)
         if runtime is not None:
             warnings.extend(runtime.warnings)
         elif runtime_error:
             warnings.append(runtime_error)
 
-        status = _takeover_status(manifest, architecture, runtime)
+        status = _takeover_status(manifest, architecture, learning_plan, runtime)
         if runtime is not None and runtime.before_snapshot_id != manifest.snapshot_id:
             status = TakeoverStatus.SNAPSHOT_CHANGED
             warnings.append("Runtime verification started from a different snapshot than source analysis.")
@@ -113,6 +131,7 @@ class TakeoverCoordinator:
             repository=repository,
             source_index=source_index,
             architecture=architecture,
+            learning_plan=learning_plan,
             runtime=runtime,
             steps=steps,
             warnings=_unique(warnings),
@@ -188,6 +207,42 @@ class TakeoverCoordinator:
             )
         )
         return report, None
+
+    def _learn(
+        self,
+        manifest: RepositoryManifest,
+        architecture: ArchitectureReport | None,
+        steps: list[TakeoverStep],
+    ) -> LearningPlan | None:
+        started = monotonic()
+        if architecture is None or architecture.run_status != AgentRunStatus.COMPLETED:
+            error = "Learning plan requires a completed architecture analysis."
+            steps.append(_failed_step(steps, TakeoverStage.LEARNING_PLAN, started, error))
+            return None
+        try:
+            plan = self.tutor.run(manifest, architecture)
+        except EXPECTED_STAGE_ERRORS as exc:
+            error = str(exc)
+            steps.append(_failed_step(steps, TakeoverStage.LEARNING_PLAN, started, error))
+            return None
+        status = StageStatus.COMPLETED if plan.status == LearningPlanStatus.SOURCE_GROUNDED else StageStatus.FAILED
+        error = None
+        if status == StageStatus.FAILED:
+            error = plan.rejected_items[0] if plan.rejected_items else plan.warnings[0] if plan.warnings else None
+        steps.append(
+            TakeoverStep(
+                step=len(steps) + 1,
+                stage=TakeoverStage.LEARNING_PLAN,
+                status=status,
+                summary=(
+                    f"Created {len(plan.units)} learning units and "
+                    f"{len(plan.questions)} source-grounded questions."
+                ),
+                duration_ms=_elapsed_ms(started),
+                error=error,
+            )
+        )
+        return plan
 
     def _runtime(
         self,
@@ -266,6 +321,7 @@ def _repository_summary(manifest: RepositoryManifest) -> RepositorySummary:
 def _takeover_status(
     manifest: RepositoryManifest,
     architecture: ArchitectureReport | None,
+    learning_plan: LearningPlan | None,
     runtime: RuntimeVerificationReport | None,
 ) -> TakeoverStatus:
     if runtime is not None and (
@@ -275,6 +331,8 @@ def _takeover_status(
         return TakeoverStatus.SNAPSHOT_CHANGED
     if architecture is None or architecture.run_status != AgentRunStatus.COMPLETED:
         return TakeoverStatus.PARTIAL
+    if learning_plan is None or learning_plan.status != LearningPlanStatus.SOURCE_GROUNDED:
+        return TakeoverStatus.PARTIAL
     if runtime is None or runtime.status not in {RuntimeStatus.PLANNED, RuntimeStatus.PASSED}:
         return TakeoverStatus.PARTIAL
     return TakeoverStatus.COMPLETED
@@ -283,7 +341,10 @@ def _takeover_status(
 def _report_summary(status: TakeoverStatus, runtime: RuntimeVerificationReport | None) -> str:
     if status == TakeoverStatus.COMPLETED:
         runtime_kind = "runtime evidence" if runtime and runtime.executed else "a reviewable runtime plan"
-        return f"Repository takeover completed with source-grounded architecture analysis and {runtime_kind}."
+        return (
+            "Repository takeover completed with architecture evidence, a grounded learning plan, "
+            f"and {runtime_kind}."
+        )
     if status == TakeoverStatus.SNAPSHOT_CHANGED:
         return "Repository content changed during takeover; review the recorded before and after snapshots."
     return "Repository takeover produced partial evidence; review failed workflow stages and warnings."

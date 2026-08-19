@@ -1,0 +1,43 @@
+{
+  "repository_name": "mindbridge-py",
+  "takeover_status": "COMPLETED",
+  "learning_status": "SOURCE_GROUNDED",
+  "provider": "mock",
+  "model": "deterministic-tutor-v1",
+  "learning_units": 4,
+  "quiz_questions": 4,
+  "units": [
+    {
+      "sequence": 1,
+      "title": "Understand run_agent_routing_harness",
+      "evidence_path": "app/harness/runner.py"
+    },
+    {
+      "sequence": 2,
+      "title": "Understand create_app",
+      "evidence_path": "app/main.py"
+    },
+    {
+      "sequence": 3,
+      "title": "Understand EventDrivenProtocolTests",
+      "evidence_path": "tests/test_event_driven_multi_agent.py"
+    },
+    {
+      "sequence": 4,
+      "title": "Understand MemoryCompactionTests",
+      "evidence_path": "tests/test_memory_compaction.py"
+    }
+  ],
+  "workflow": [
+    "SCAN:COMPLETED",
+    "INDEX:COMPLETED",
+    "ANALYZE:COMPLETED",
+    "LEARNING_PLAN:COMPLETED",
+    "RUNTIME_PLAN:COMPLETED",
+    "REPORT:COMPLETED"
+  ],
+  "limitations": [
+    "The mock tutor validates orchestration and citation integrity, not semantic teaching quality.",
+    "Answer submission and scoring are not part of Day 6."
+  ]
+}

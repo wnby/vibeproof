@@ -4,6 +4,7 @@ import pytest
 
 from vibeproof.model_client import (
     MockAnalystModelClient,
+    MockTutorModelClient,
     ModelConfigurationError,
     ModelMessage,
     OllamaModelClient,
@@ -51,6 +52,13 @@ def test_mock_provider_finishes_with_observed_evidence() -> None:
 
     assert action["action"] == "FINAL_ANSWER"
     assert action["claims"][0]["evidence_ids"] == ["chunk:one"]
+
+
+def test_model_factory_creates_task_specific_mock_tutor() -> None:
+    client = create_model_client("mock", task="tutor")
+
+    assert isinstance(client, MockTutorModelClient)
+    assert client.model == "deterministic-tutor-v1"
 
 
 def test_model_factory_requires_model_for_network_provider(monkeypatch) -> None:

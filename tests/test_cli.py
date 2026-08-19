@@ -140,4 +140,6 @@ def test_takeover_cli_runs_unified_plan_only_workflow(tmp_path: Path) -> None:
     assert "# Repository takeover report" in rendered
     assert "Status: `COMPLETED`" in rendered
     assert "Executed: `false`" in rendered
+    assert "## Recommended learning path" in rendered
+    assert "## Source-grounded quiz" in rendered
     assert "RUNTIME_PLAN" in rendered

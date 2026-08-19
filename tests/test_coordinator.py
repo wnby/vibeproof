@@ -26,6 +26,14 @@ class FailingModel:
         raise ModelClientError("provider unavailable")
 
 
+class FailingTutorModel:
+    provider = "failing-tutor"
+    model = "unavailable-tutor"
+
+    def complete(self, messages: list[ModelMessage]) -> str:
+        raise ModelClientError("tutor unavailable")
+
+
 def _repository(tmp_path: Path, test_body: str = "def test_ok():\n    assert True\n") -> Path:
     repository = tmp_path / "repository"
     tests = repository / "tests"
@@ -38,10 +46,17 @@ def _repository(tmp_path: Path, test_body: str = "def test_ok():\n    assert Tru
     return repository
 
 
-def _coordinator(tmp_path: Path, *, model=None, policy: TakeoverPolicy | None = None) -> TakeoverCoordinator:
+def _coordinator(
+    tmp_path: Path,
+    *,
+    model=None,
+    tutor_model=None,
+    policy: TakeoverPolicy | None = None,
+) -> TakeoverCoordinator:
     return TakeoverCoordinator(
         store=EvidenceStore(tmp_path / "state" / "index.sqlite3"),
         model=model or MockAnalystModelClient(),
+        tutor_model=tutor_model,
         policy=policy,
     )
 
@@ -55,21 +70,26 @@ def test_unified_takeover_builds_every_artifact_without_execution(tmp_path: Path
     assert report.repository is not None
     assert report.source_index is not None
     assert report.architecture is not None
+    assert report.learning_plan is not None
     assert report.runtime is not None
     assert report.runtime.status == RuntimeStatus.PLANNED
     assert report.runtime.executed is False
     assert report.snapshot_id == report.repository.snapshot_id
     assert report.snapshot_id == report.source_index.snapshot_id
     assert report.snapshot_id == report.architecture.snapshot_id
+    assert report.snapshot_id == report.learning_plan.snapshot_id
     assert report.snapshot_id == report.runtime.before_snapshot_id
     assert [step.stage for step in report.steps] == [
         TakeoverStage.SCAN,
         TakeoverStage.INDEX,
         TakeoverStage.ANALYZE,
+        TakeoverStage.LEARNING_PLAN,
         TakeoverStage.RUNTIME_PLAN,
         TakeoverStage.REPORT,
     ]
     assert report.architecture.claims
+    assert report.learning_plan.units
+    assert report.learning_plan.questions
     restored = TakeoverReport.model_validate_json(report.model_dump_json())
     assert restored.snapshot_id == report.snapshot_id
 
@@ -83,11 +103,29 @@ def test_model_failure_produces_partial_report_and_runtime_plan(tmp_path: Path) 
     assert report.source_index is not None
     assert report.architecture is not None
     assert report.architecture.run_status == AgentRunStatus.MODEL_ERROR
+    assert report.learning_plan is None
     assert report.runtime is not None
     assert report.runtime.status == RuntimeStatus.PLANNED
     analyze_step = next(step for step in report.steps if step.stage == TakeoverStage.ANALYZE)
     assert analyze_step.status == StageStatus.FAILED
     assert analyze_step.error == "provider unavailable"
+
+
+def test_tutor_failure_produces_partial_report_without_losing_other_artifacts(tmp_path: Path) -> None:
+    repository = _repository(tmp_path)
+
+    report = _coordinator(tmp_path, tutor_model=FailingTutorModel()).run(repository)
+
+    assert report.status == TakeoverStatus.PARTIAL
+    assert report.architecture is not None
+    assert report.architecture.run_status == AgentRunStatus.COMPLETED
+    assert report.learning_plan is not None
+    assert report.learning_plan.status.value == "FAILED"
+    assert report.runtime is not None
+    assert report.runtime.status == RuntimeStatus.PLANNED
+    learning_step = next(step for step in report.steps if step.stage == TakeoverStage.LEARNING_PLAN)
+    assert learning_step.status == StageStatus.FAILED
+    assert learning_step.error == "tutor unavailable"
 
 
 def test_failing_tests_are_preserved_in_partial_takeover_report(tmp_path: Path) -> None:
@@ -148,6 +186,8 @@ def test_markdown_takeover_report_contains_all_major_sections(tmp_path: Path) ->
     assert "# Repository takeover report" in rendered
     assert "## Source index" in rendered
     assert "## Architecture analysis" in rendered
+    assert "## Recommended learning path" in rendered
+    assert "## Source-grounded quiz" in rendered
     assert "## Runtime verification" in rendered
     assert "## Workflow trace" in rendered
     assert "repository_entrypoint" in rendered

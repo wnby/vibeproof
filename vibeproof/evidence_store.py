@@ -186,6 +186,53 @@ class EvidenceStore:
             for row in rows
         }
 
+    def get_hits(
+        self,
+        snapshot_id: str,
+        chunk_ids: list[str],
+        *,
+        max_excerpt_characters: int = 500,
+    ) -> list[EvidenceHit]:
+        unique_ids = list(dict.fromkeys(chunk_ids))
+        if not unique_ids:
+            return []
+        if len(unique_ids) > 100:
+            raise ValueError("at most 100 source chunks may be loaded at once")
+        if max_excerpt_characters < 1 or max_excerpt_characters > 2_000:
+            raise ValueError("max_excerpt_characters must be between 1 and 2000")
+        if not self.database_path.is_file():
+            raise IndexNotFoundError("source index does not exist; run `vibeproof index` first")
+
+        placeholders = ",".join("?" for _ in unique_ids)
+        with self._connect() as connection:
+            _create_schema(connection)
+            rows = connection.execute(
+                f"""
+                SELECT chunk_id, snapshot_id, path, start_line, end_line, content_hash,
+                       content, symbol, symbol_kind
+                FROM chunks
+                WHERE snapshot_id = ? AND chunk_id IN ({placeholders})
+                """,
+                (snapshot_id, *unique_ids),
+            ).fetchall()
+        by_id = {row["chunk_id"]: row for row in rows}
+        return [
+            EvidenceHit(
+                chunk_id=chunk_id,
+                snapshot_id=row["snapshot_id"],
+                path=row["path"],
+                start_line=row["start_line"],
+                end_line=row["end_line"],
+                symbol=row["symbol"],
+                symbol_kind=SymbolKind(row["symbol_kind"]),
+                score=0,
+                content_hash=row["content_hash"],
+                excerpt=_excerpt(row["content"], (), max_excerpt_characters),
+            )
+            for chunk_id in unique_ids
+            if (row := by_id.get(chunk_id)) is not None
+        ]
+
     def _connect(self) -> sqlite3.Connection:
         connection = sqlite3.connect(self.database_path)
         connection.row_factory = sqlite3.Row

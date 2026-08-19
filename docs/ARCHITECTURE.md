@@ -108,6 +108,33 @@ failures create a `PARTIAL` report while preserving completed artifacts. A chang
 `SNAPSHOT_CHANGED`. The `takeover` CLI is the user-facing golden path, while the earlier commands remain useful for
 debugging individual stages.
 
+## Day 6
+
+```text
+Manifest + ArchitectureReport + EvidenceStore
+                    |
+                    v
+          LearningEvidenceSelector
+ architecture refs + entrypoints + tests + frameworks
+                    |
+            bounded EvidenceHit set
+                    v
+          RepositoryTutorAgent <---- task-specific ModelClient
+                    |
+             LearningPlanDraft
+                    v
+          LearningPlanReviewer
+ observed + persisted + current snapshot checks
+                    |
+                    v
+     LearningPlan (units + exercises + quiz + references)
+```
+
+The selector deterministically gathers at most a bounded number of source chunks; the tutor cannot cite other IDs.
+The reviewer reloads requested references from SQLite and rejects unseen, stale, missing, or metadata-mismatched
+citations. `SOURCE_GROUNDED` describes provenance, not proof that a model-authored teaching explanation is semantically
+perfect. A failed learning stage makes the unified takeover `PARTIAL` while runtime planning still proceeds.
+
 ## Current and planned workflow
 
 ```text
@@ -116,9 +143,10 @@ Repository path
    -> RepositoryManifest
    -> Source evidence index
    -> RepositoryAnalystAgent + CitationReviewer
+   -> RepositoryTutorAgent + LearningPlanReviewer
    -> RuntimeVerifier
 -> TakeoverReport
--> future TutorAgent and source-grounded quizzes
+-> future answer review and learning progress
 ```
 
 Deterministic services own file access, indexing, and command execution. Agents reason over typed artifacts and cannot

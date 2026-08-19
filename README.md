@@ -3,8 +3,8 @@
 VibeProof is an evidence-backed onboarding and takeover agent for Python repositories. It helps a developer move from
 "the project runs" to "I can explain, verify, and safely change it."
 
-The current milestone accepts one local repository path and coordinates scanning, source indexing, evidence-grounded
-architecture analysis, citation review, and plan-first runtime verification into one takeover report.
+The current milestone accepts one local repository path and coordinates scanning, source indexing, architecture
+analysis, citation review, a source-grounded learning path and quiz, and plan-first runtime verification into one report.
 
 ## Status
 
@@ -32,11 +32,14 @@ Implemented:
 - JSON and Markdown runtime reports that preserve both passing and failing evidence
 - a `TakeoverCoordinator` that preserves partial results when analysis or runtime checks fail
 - one-command JSON/Markdown takeover reports with a stage-by-stage execution trace
+- bounded learning-evidence selection across architecture, entrypoint, test, framework, and dependency sources
+- a `RepositoryTutorAgent` with reviewed learning units, exercises, and source-grounded quiz questions
+- task-specific offline analyst and tutor models for reproducible demos without a paid API
 
 Not implemented yet:
 
 - LLM-generated architecture analysis
-- source-grounded learning plans and quizzes
+- user answer evaluation and persistent learning progress
 - arbitrary command execution or code modification
 - GitHub App integration
 - fine-tuned tool-risk model
@@ -62,8 +65,9 @@ uv run python -m vibeproof takeover /path/to/python-repository \
   --provider mock --check pytest --execute
 ```
 
-Without `--execute`, the unified workflow scans, indexes, analyzes, reviews citations, and creates a runtime plan but
-does not run target code. A model or test failure produces a `PARTIAL` report instead of discarding earlier evidence.
+Without `--execute`, the unified workflow scans, indexes, analyzes, reviews citations, generates a learning path and
+quiz, and creates a runtime plan without running target code. A model or test failure produces a `PARTIAL` report
+instead of discarding earlier evidence.
 
 The individual commands remain available for inspection and debugging:
 
@@ -181,7 +185,9 @@ validated; it does not claim that model-authored semantics were deterministicall
 2. ~~Evidence-backed architecture analysis~~
 3. ~~Plan-first runtime verification and command evidence~~
 4. ~~Repository takeover report and replayable workflow trace~~
-5. Learning plans and source-grounded quizzes
+5. ~~Source-grounded learning plans and quiz generation~~
+6. Evidence-backed answer review and learning progress
 
 See [docs/MVP.md](docs/MVP.md), [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs/DAY2.md](docs/DAY2.md),
-[docs/DAY3.md](docs/DAY3.md), [docs/DAY4.md](docs/DAY4.md), and [docs/DAY5.md](docs/DAY5.md).
+[docs/DAY3.md](docs/DAY3.md), [docs/DAY4.md](docs/DAY4.md), [docs/DAY5.md](docs/DAY5.md), and
+[docs/DAY6.md](docs/DAY6.md).

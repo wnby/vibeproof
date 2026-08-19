@@ -204,6 +204,18 @@ def main(argv: list[str] | None = None) -> int:
             return 0 if report.status in {RuntimeStatus.PLANNED, RuntimeStatus.PASSED} else 1
         if args.command == "takeover":
             scan_policy = ScanPolicy(max_files=args.max_files, max_file_size_bytes=args.max_file_size)
+            analyst_model = create_model_client(
+                provider=args.provider,
+                model=args.model,
+                base_url=args.base_url,
+                task="analyst",
+            )
+            tutor_model = create_model_client(
+                provider=args.provider,
+                model=args.model,
+                base_url=args.base_url,
+                task="tutor",
+            )
             policy = TakeoverPolicy(
                 scan_policy=scan_policy,
                 index_policy=IndexPolicy(
@@ -226,8 +238,9 @@ def main(argv: list[str] | None = None) -> int:
             )
             report = TakeoverCoordinator(
                 store=EvidenceStore(args.database),
-                model=create_model_client(provider=args.provider, model=args.model, base_url=args.base_url),
+                model=analyst_model,
                 policy=policy,
+                tutor_model=tutor_model,
             ).run(args.path)
             rendered = report.model_dump_json(indent=2) if args.format == "json" else render_takeover_report(report)
             if args.output:

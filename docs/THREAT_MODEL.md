@@ -60,6 +60,13 @@ catalog. The unified command remains plan-only unless the operator supplies `--e
 dependent stages; model and runtime failures are retained as partial evidence rather than silently upgraded to a
 completed report.
 
+## Day 6 tutor boundary
+
+The tutor receives only bounded evidence selected from the current source index. Source excerpts remain untrusted data.
+Every learning unit and question must cite an observed chunk, and the reviewer reloads the current SQLite reference to
+compare snapshot, path, lines, symbol kind, and content hash. Invented, stale, missing, and mismatched citations do not
+enter accepted learning output. `SOURCE_GROUNDED` is a provenance label, not a semantic correctness guarantee.
+
 ## Prompt-injection boundary
 
 Repository text is evidence, not instruction. Future prompts must clearly delimit retrieved source, prevent repository

@@ -81,6 +81,68 @@ def render_takeover_report(report: TakeoverReport) -> str:
         else:
             lines.append("- None.")
 
+    lines.extend(["", "## Recommended learning path", ""])
+    if report.learning_plan is None:
+        lines.append("No source-grounded learning plan was produced.")
+    else:
+        learning = report.learning_plan
+        learning_references = {item.chunk_id: item for item in learning.evidence}
+        lines.extend(
+            [
+                f"- Status: `{learning.status.value}`",
+                f"- Provider: `{learning.provider}`",
+                f"- Model: `{learning.model}`",
+                "",
+                learning.summary,
+                "",
+            ]
+        )
+        for unit in learning.units:
+            citations = ", ".join(
+                _reference(learning_references.get(chunk_id), chunk_id) for chunk_id in unit.evidence_ids
+            )
+            lines.extend(
+                [
+                    f"### {unit.sequence}. {unit.title}",
+                    "",
+                    f"Objective: {unit.objective}",
+                    "",
+                    f"Why it matters: {unit.why_it_matters}",
+                    "",
+                    f"Exercise: {unit.exercise}",
+                    "",
+                    f"Evidence: {citations}",
+                    "",
+                ]
+            )
+
+        lines.extend(["## Source-grounded quiz", ""])
+        if learning.questions:
+            for question in learning.questions:
+                citations = ", ".join(
+                    _reference(learning_references.get(chunk_id), chunk_id)
+                    for chunk_id in question.evidence_ids
+                )
+                lines.extend(
+                    [
+                        f"### {question.question_id} (`{question.difficulty.value}`)",
+                        "",
+                        question.prompt,
+                        "",
+                        f"Learning unit: `{question.unit_sequence}`  ",
+                        f"Evidence: {citations}  ",
+                        f"Evaluation focus: {'; '.join(question.evaluation_points)}",
+                        "",
+                    ]
+                )
+        else:
+            lines.append("- No questions were accepted.")
+
+        lines.extend(["## Rejected learning items", ""])
+        lines.extend(f"- {item}" for item in learning.rejected_items)
+        if not learning.rejected_items:
+            lines.append("- None.")
+
     lines.extend(["", "## Runtime verification", ""])
     if report.runtime is None:
         lines.append("No runtime plan or evidence was produced.")

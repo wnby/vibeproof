@@ -86,6 +86,66 @@ class MockAnalystModelClient:
         )
 
 
+class MockTutorModelClient:
+    provider = "mock"
+    model = "deterministic-tutor-v1"
+
+    def complete(self, messages: list[ModelMessage]) -> str:
+        state = _extract_tutor_state(messages)
+        evidence = state.get("evidence", [])
+        repository = state.get("repository", {})
+        repository_name = (
+            repository.get("repository_name", "repository") if isinstance(repository, dict) else "repository"
+        )
+        units: list[dict[str, object]] = []
+        questions: list[dict[str, object]] = []
+        seen_paths: set[str] = set()
+        if isinstance(evidence, list):
+            for item in evidence:
+                if not isinstance(item, dict):
+                    continue
+                chunk_id = item.get("chunk_id")
+                path = str(item.get("path", "unknown"))
+                if not isinstance(chunk_id, str) or not chunk_id or path in seen_paths:
+                    continue
+                seen_paths.add(path)
+                sequence = len(units) + 1
+                subject = str(item.get("symbol") or path)
+                units.append(
+                    {
+                        "sequence": sequence,
+                        "title": f"Understand {subject}",
+                        "objective": f"Explain the responsibility of {subject} and its role in {path}.",
+                        "why_it_matters": "This source location is part of the evidence-backed takeover path.",
+                        "exercise": f"Trace one caller or dependency of {subject} and summarize the flow.",
+                        "evidence_ids": [chunk_id],
+                    }
+                )
+                questions.append(
+                    {
+                        "question_id": f"unit-{sequence}-q1",
+                        "unit_sequence": sequence,
+                        "difficulty": "BASIC" if sequence == 1 else "TRACE",
+                        "prompt": f"What responsibility does {subject} have in {path}, based on the cited source?",
+                        "evaluation_points": [
+                            "Identify the source responsibility",
+                            "Explain one relevant control or data-flow connection",
+                            "Ground the answer in the cited line range",
+                        ],
+                        "evidence_ids": [chunk_id],
+                    }
+                )
+                if len(units) >= 4:
+                    break
+        return json.dumps(
+            {
+                "summary": f"A staged source-grounded takeover path for {repository_name}.",
+                "units": units,
+                "questions": questions,
+            }
+        )
+
+
 class OpenAICompatibleModelClient:
     provider = "openai-compatible"
 
@@ -168,10 +228,15 @@ def create_model_client(
     provider: str,
     model: str | None = None,
     base_url: str | None = None,
+    *,
+    task: str = "analyst",
 ) -> ModelClient:
     normalized = provider.strip().lower()
+    normalized_task = task.strip().lower()
+    if normalized_task not in {"analyst", "tutor"}:
+        raise ModelConfigurationError("task must be one of: analyst, tutor")
     if normalized == "mock":
-        return MockAnalystModelClient()
+        return MockAnalystModelClient() if normalized_task == "analyst" else MockTutorModelClient()
     resolved_model = (model or os.getenv("VIBEPROOF_AI_MODEL", "")).strip()
     if normalized == "openai-compatible":
         configured_url = os.getenv("VIBEPROOF_AI_BASE_URL", "").strip()
@@ -229,3 +294,17 @@ def _extract_state(messages: list[ModelMessage]) -> dict[str, object]:
             if isinstance(state, dict):
                 return state
     raise ModelClientError("mock provider did not receive analyst state")
+
+
+def _extract_tutor_state(messages: list[ModelMessage]) -> dict[str, object]:
+    marker = "TUTOR_STATE_JSON:\n"
+    for message in reversed(messages):
+        if message.role == "user" and marker in message.content:
+            raw = message.content.split(marker, 1)[1]
+            try:
+                state = json.loads(raw)
+            except json.JSONDecodeError as exc:
+                raise ModelClientError("mock provider received invalid tutor state") from exc
+            if isinstance(state, dict):
+                return state
+    raise ModelClientError("mock provider did not receive tutor state")

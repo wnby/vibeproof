@@ -45,8 +45,8 @@ runtime evidence contains an approved command, exit code, and bounded output exc
 ### TakeoverReport
 
 The current handoff document contains repository metadata, index statistics, source-supported claims, rejected claims,
-unresolved questions, runtime plans or evidence, workflow steps, and known limitations for one repository snapshot.
-Future tutoring milestones will add learning progress.
+unresolved questions, reviewed learning units, source-grounded quiz questions, runtime plans or evidence, workflow
+steps, and known limitations for one repository snapshot. Future tutoring milestones will add answer review and progress.
 
 ## Out of scope for v0.1
 
