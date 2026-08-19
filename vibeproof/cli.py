@@ -7,14 +7,16 @@ import sys
 from pathlib import Path
 
 from vibeproof.analyst import AnalystPolicy, RepositoryAnalystAgent
+from vibeproof.coordinator import TakeoverCoordinator, TakeoverPolicy
 from vibeproof.evidence_store import EvidenceStore, IndexNotFoundError
 from vibeproof.model_client import ModelClientError, create_model_client
 from vibeproof.reporting import render_architecture_report
 from vibeproof.runtime import RuntimePolicy, RuntimeVerifier
 from vibeproof.runtime_reporting import render_runtime_report
 from vibeproof.scanner import RepositoryScanner, ScanPolicy
-from vibeproof.schemas import EvidenceHit, RuntimeCheck, RuntimeStatus
+from vibeproof.schemas import EvidenceHit, RuntimeCheck, RuntimeStatus, TakeoverStatus
 from vibeproof.source_index import IndexPolicy, PythonSourceIndexer
+from vibeproof.takeover_reporting import render_takeover_report
 
 DEFAULT_DATABASE = Path(".vibeproof/index.sqlite3")
 
@@ -80,6 +82,31 @@ def build_parser() -> argparse.ArgumentParser:
     verify_parser.add_argument("--max-file-size", type=int, default=1_000_000)
     verify_parser.add_argument("--format", choices=("json", "markdown"), default="json")
     verify_parser.add_argument("--output", "-o", type=Path, help="write the verification report to this path")
+
+    takeover_parser = subparsers.add_parser("takeover", help="run the unified repository takeover workflow")
+    takeover_parser.add_argument("path", type=Path, help="repository root")
+    takeover_parser.add_argument("--database", type=Path, default=DEFAULT_DATABASE, help="local SQLite index path")
+    takeover_parser.add_argument(
+        "--provider",
+        choices=("mock", "openai-compatible", "ollama"),
+        default=os.getenv("VIBEPROOF_AI_PROVIDER", "mock"),
+    )
+    takeover_parser.add_argument("--model", default=None, help="model name; may also use VIBEPROOF_AI_MODEL")
+    takeover_parser.add_argument("--base-url", default=None, help="model endpoint; may also use VIBEPROOF_AI_BASE_URL")
+    takeover_parser.add_argument("--max-steps", type=int, default=8)
+    takeover_parser.add_argument("--max-queries", type=int, default=5)
+    takeover_parser.add_argument("--search-limit", type=int, default=3)
+    takeover_parser.add_argument("--max-files", type=int, default=5_000)
+    takeover_parser.add_argument("--max-file-size", type=int, default=1_000_000)
+    takeover_parser.add_argument("--max-chunk-lines", type=int, default=120)
+    takeover_parser.add_argument("--overlap-lines", type=int, default=12)
+    takeover_parser.add_argument("--check", choices=("pytest", "pytest-collect"), default="pytest")
+    takeover_parser.add_argument("--execute", action="store_true", help="execute the fixed check; default is plan only")
+    takeover_parser.add_argument("--python", type=Path, help="explicit Python interpreter")
+    takeover_parser.add_argument("--timeout", type=float, default=120, help="runtime check timeout in seconds")
+    takeover_parser.add_argument("--output-limit", type=int, default=20_000)
+    takeover_parser.add_argument("--format", choices=("json", "markdown"), default="json")
+    takeover_parser.add_argument("--output", "-o", type=Path, help="write the takeover report to this path")
 
     serve_parser = subparsers.add_parser("serve", help="run the local FastAPI service")
     serve_parser.add_argument("--host", default="127.0.0.1")
@@ -175,6 +202,42 @@ def main(argv: list[str] | None = None) -> int:
                 _configure_stdout_utf8()
                 print(rendered.rstrip())
             return 0 if report.status in {RuntimeStatus.PLANNED, RuntimeStatus.PASSED} else 1
+        if args.command == "takeover":
+            scan_policy = ScanPolicy(max_files=args.max_files, max_file_size_bytes=args.max_file_size)
+            policy = TakeoverPolicy(
+                scan_policy=scan_policy,
+                index_policy=IndexPolicy(
+                    max_chunk_lines=args.max_chunk_lines,
+                    overlap_lines=args.overlap_lines,
+                ),
+                analyst_policy=AnalystPolicy(
+                    max_steps=args.max_steps,
+                    max_queries=args.max_queries,
+                    search_limit=args.search_limit,
+                ),
+                runtime_policy=RuntimePolicy(
+                    timeout_seconds=args.timeout,
+                    output_limit_chars=args.output_limit,
+                    scan_policy=scan_policy,
+                ),
+                runtime_check=(RuntimeCheck.PYTEST if args.check == "pytest" else RuntimeCheck.PYTEST_COLLECT),
+                execute_runtime=args.execute,
+                python_executable=args.python,
+            )
+            report = TakeoverCoordinator(
+                store=EvidenceStore(args.database),
+                model=create_model_client(provider=args.provider, model=args.model, base_url=args.base_url),
+                policy=policy,
+            ).run(args.path)
+            rendered = report.model_dump_json(indent=2) if args.format == "json" else render_takeover_report(report)
+            if args.output:
+                output = args.output.expanduser().resolve()
+                output.parent.mkdir(parents=True, exist_ok=True)
+                output.write_text(rendered.rstrip() + "\n", encoding="utf-8")
+            else:
+                _configure_stdout_utf8()
+                print(rendered.rstrip())
+            return 0 if report.status == TakeoverStatus.COMPLETED else 1
         if args.command == "serve":
             import uvicorn
 

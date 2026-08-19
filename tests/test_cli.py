@@ -108,3 +108,36 @@ def test_verify_cli_executes_only_with_execute_flag(tmp_path: Path) -> None:
     rendered = report_path.read_text(encoding="utf-8")
     assert "# Runtime verification" in rendered
     assert "Command status: `PASSED`" in rendered
+
+
+def test_takeover_cli_runs_unified_plan_only_workflow(tmp_path: Path) -> None:
+    repository = tmp_path / "repository"
+    repository.mkdir()
+    (repository / "main.py").write_text(
+        "def repository_entrypoint() -> str:\n    return 'ready'\n",
+        encoding="utf-8",
+    )
+    database = tmp_path / "state" / "index.sqlite3"
+    report_path = tmp_path / "reports" / "takeover.md"
+
+    exit_code = main(
+        [
+            "takeover",
+            str(repository),
+            "--database",
+            str(database),
+            "--provider",
+            "mock",
+            "--format",
+            "markdown",
+            "--output",
+            str(report_path),
+        ]
+    )
+
+    assert exit_code == 0
+    rendered = report_path.read_text(encoding="utf-8")
+    assert "# Repository takeover report" in rendered
+    assert "Status: `COMPLETED`" in rendered
+    assert "Executed: `false`" in rendered
+    assert "RUNTIME_PLAN" in rendered

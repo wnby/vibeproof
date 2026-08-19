@@ -14,14 +14,11 @@ repository before changing it.
 
 ```text
 select local repository
--> scan structure and metadata
--> index source with file/line evidence
--> generate an evidence-grounded architecture analysis
--> verify runtime facts with approved tools
+-> run one coordinated scan/index/analyze/runtime-plan workflow
+-> export an evidence-backed Repository Takeover Report
 -> generate a staged learning plan
 -> ask source-grounded questions
 -> review the user's answers against evidence
--> export a Repository Takeover Report
 ```
 
 ## v0.1 success criteria
@@ -47,8 +44,9 @@ runtime evidence contains an approved command, exit code, and bounded output exc
 
 ### TakeoverReport
 
-The final handoff document containing verified claims, unresolved questions, learning progress, runtime checks, and
-known limitations for one repository snapshot.
+The current handoff document contains repository metadata, index statistics, source-supported claims, rejected claims,
+unresolved questions, runtime plans or evidence, workflow steps, and known limitations for one repository snapshot.
+Future tutoring milestones will add learning progress.
 
 ## Out of scope for v0.1
 

@@ -86,18 +86,40 @@ and `pytest --collect-only`. Plans select an explicit interpreter, a target `.ve
 order. Execution never creates an environment or installs dependencies. A changed post-run snapshot is reported as
 `SNAPSHOT_CHANGED`; VibeProof records the change but does not revert user files.
 
-## Planned agent workflow
+## Day 5
 
 ```text
-RepositoryManifest
--> Source evidence index
--> RepositoryAnalystAgent
--> RuntimeVerifier
--> TutorAgent
--> EvidenceReviewAgent
+local repository path
+         |
+         v
+ TakeoverCoordinator
+   | SCAN ------> RepositorySummary
+   | INDEX -----> SourceIndexSummary + EvidenceStore
+   | ANALYZE ---> ArchitectureReport + citation review
+   | RUNTIME ---> plan by default, evidence with --execute
+   | REPORT
+         v
+ TakeoverReport + TakeoverStep trace
+```
+
+The coordinator composes existing deterministic services and the bounded analyst; it does not add a second reasoning
+loop. Scan or index failure creates a `FAILED` report because later evidence cannot be grounded. Analyst and runtime
+failures create a `PARTIAL` report while preserving completed artifacts. A changed runtime snapshot becomes
+`SNAPSHOT_CHANGED`. The `takeover` CLI is the user-facing golden path, while the earlier commands remain useful for
+debugging individual stages.
+
+## Current and planned workflow
+
+```text
+Repository path
 -> TakeoverCoordinator
+   -> RepositoryManifest
+   -> Source evidence index
+   -> RepositoryAnalystAgent + CitationReviewer
+   -> RuntimeVerifier
 -> TakeoverReport
+-> future TutorAgent and source-grounded quizzes
 ```
 
 Deterministic services own file access, indexing, and command execution. Agents reason over typed artifacts and cannot
-bypass tool policy. The coordinator may only publish an accepted artifact after evidence review.
+bypass tool policy. The coordinator reports incomplete stages instead of treating partial output as a completed run.

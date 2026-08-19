@@ -53,6 +53,13 @@ Use disposable environments for repositories that are not trusted enough to exec
 policy DSLs, automatic dependency installation, container orchestration, and arbitrary shell access are intentionally
 outside the Day 4 scope.
 
+## Day 5 coordinator boundary
+
+`TakeoverCoordinator` cannot introduce commands or bypass the existing scanner, indexer, citation reviewer, or runtime
+catalog. The unified command remains plan-only unless the operator supplies `--execute`. Scan and index failures stop
+dependent stages; model and runtime failures are retained as partial evidence rather than silently upgraded to a
+completed report.
+
 ## Prompt-injection boundary
 
 Repository text is evidence, not instruction. Future prompts must clearly delimit retrieved source, prevent repository

@@ -3,8 +3,8 @@
 VibeProof is an evidence-backed onboarding and takeover agent for Python repositories. It helps a developer move from
 "the project runs" to "I can explain, verify, and safely change it."
 
-The current milestone scans a local repository, builds a stable source-evidence index, runs a bounded architecture
-analyst, and can explicitly execute a small catalog of runtime checks with auditable evidence.
+The current milestone accepts one local repository path and coordinates scanning, source indexing, evidence-grounded
+architecture analysis, citation review, and plan-first runtime verification into one takeover report.
 
 ## Status
 
@@ -30,6 +30,8 @@ Implemented:
 - plan-first runtime verification with fixed `pytest` and `pytest --collect-only` checks
 - target-interpreter discovery, timeouts, bounded output, environment scrubbing, and before/after snapshots
 - JSON and Markdown runtime reports that preserve both passing and failing evidence
+- a `TakeoverCoordinator` that preserves partial results when analysis or runtime checks fail
+- one-command JSON/Markdown takeover reports with a stage-by-stage execution trace
 
 Not implemented yet:
 
@@ -43,6 +45,29 @@ Not implemented yet:
 
 ```bash
 uv sync --group dev
+uv run python -m vibeproof takeover /path/to/python-repository --provider mock
+```
+
+Write the complete plan-only report as Markdown:
+
+```bash
+uv run python -m vibeproof takeover /path/to/python-repository \
+  --provider mock --format markdown --output reports/takeover.md
+```
+
+Explicitly execute the fixed test check as part of takeover:
+
+```bash
+uv run python -m vibeproof takeover /path/to/python-repository \
+  --provider mock --check pytest --execute
+```
+
+Without `--execute`, the unified workflow scans, indexes, analyzes, reviews citations, and creates a runtime plan but
+does not run target code. A model or test failure produces a `PARTIAL` report instead of discarding earlier evidence.
+
+The individual commands remain available for inspection and debugging:
+
+```bash
 uv run python -m vibeproof scan /path/to/python-repository
 ```
 
@@ -155,8 +180,8 @@ validated; it does not claim that model-authored semantics were deterministicall
 1. ~~Source chunks with file and line evidence~~
 2. ~~Evidence-backed architecture analysis~~
 3. ~~Plan-first runtime verification and command evidence~~
-4. Learning plans and source-grounded quizzes
-5. Repository takeover report and replayable traces
+4. ~~Repository takeover report and replayable workflow trace~~
+5. Learning plans and source-grounded quizzes
 
-See [docs/MVP.md](docs/MVP.md), [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs/DAY2.md](docs/DAY2.md), and
-[docs/DAY3.md](docs/DAY3.md), and [docs/DAY4.md](docs/DAY4.md) for the v0.1 scope and implementation notes.
+See [docs/MVP.md](docs/MVP.md), [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs/DAY2.md](docs/DAY2.md),
+[docs/DAY3.md](docs/DAY3.md), [docs/DAY4.md](docs/DAY4.md), and [docs/DAY5.md](docs/DAY5.md).

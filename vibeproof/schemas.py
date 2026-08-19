@@ -92,6 +92,27 @@ class RuntimeStatus(StrEnum):
     SNAPSHOT_CHANGED = "SNAPSHOT_CHANGED"
 
 
+class TakeoverStatus(StrEnum):
+    COMPLETED = "COMPLETED"
+    PARTIAL = "PARTIAL"
+    FAILED = "FAILED"
+    SNAPSHOT_CHANGED = "SNAPSHOT_CHANGED"
+
+
+class TakeoverStage(StrEnum):
+    SCAN = "SCAN"
+    INDEX = "INDEX"
+    ANALYZE = "ANALYZE"
+    RUNTIME_PLAN = "RUNTIME_PLAN"
+    RUNTIME_EXECUTION = "RUNTIME_EXECUTION"
+    REPORT = "REPORT"
+
+
+class StageStatus(StrEnum):
+    COMPLETED = "COMPLETED"
+    FAILED = "FAILED"
+
+
 class GitSnapshot(StrictModel):
     available: bool = False
     branch: str | None = None
@@ -386,14 +407,46 @@ class Evidence(StrictModel):
         return self
 
 
-class TakeoverReport(StrictModel):
-    report_id: str = Field(default_factory=lambda: f"report:{uuid4().hex}")
+class RepositorySummary(StrictModel):
     repository_name: str
     snapshot_id: str
-    status: VerificationStatus
+    languages: dict[str, int] = Field(default_factory=dict)
+    frameworks: list[str] = Field(default_factory=list)
+    entrypoints: list[str] = Field(default_factory=list)
+    dependency_files: list[str] = Field(default_factory=list)
+    test_files: list[str] = Field(default_factory=list)
+    scanned_files: int = Field(ge=0)
+
+
+class TakeoverStep(StrictModel):
+    step: int = Field(ge=1)
+    stage: TakeoverStage
+    status: StageStatus
     summary: str
-    verified_claims: list[str] = Field(default_factory=list)
-    unresolved_questions: list[str] = Field(default_factory=list)
-    evidence: list[Evidence] = Field(default_factory=list)
+    duration_ms: int = Field(ge=0)
+    error: str | None = None
+
+
+class TakeoverReport(StrictModel):
+    report_id: str = Field(default_factory=lambda: f"takeover:{uuid4().hex}")
+    repository_name: str
+    snapshot_id: str | None = None
+    status: TakeoverStatus
+    summary: str
+    repository: RepositorySummary | None = None
+    source_index: SourceIndexSummary | None = None
+    architecture: ArchitectureReport | None = None
+    runtime: RuntimeVerificationReport | None = None
+    steps: list[TakeoverStep] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list)
     generated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+    @model_validator(mode="after")
+    def validate_completed_report(self) -> TakeoverReport:
+        if self.status == TakeoverStatus.COMPLETED and not all(
+            (self.repository, self.source_index, self.architecture, self.runtime)
+        ):
+            raise ValueError("completed takeover reports require every workflow artifact")
+        if self.repository is not None and self.snapshot_id != self.repository.snapshot_id:
+            raise ValueError("report and repository snapshot IDs must match")
+        return self

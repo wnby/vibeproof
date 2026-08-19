@@ -1,0 +1,37 @@
+{
+  "repository_name": "mindbridge-py",
+  "snapshot_id": "sha256:bbbf8206c27b9d5ce93da77478ddca4a05018e2e5c3cb9e49cc2d1f3b400b522",
+  "plan_only_takeover": {
+    "status": "COMPLETED",
+    "scanned_files": 89,
+    "indexed_python_files": 49,
+    "symbols": 489,
+    "source_chunks": 575,
+    "imports": 520,
+    "accepted_claims": 5,
+    "rejected_claims": 0,
+    "runtime_status": "PLANNED",
+    "runtime_executed": false,
+    "command": [
+      ".venv/Scripts/python.exe",
+      "-m",
+      "pytest",
+      "--collect-only",
+      "-q"
+    ]
+  },
+  "explicit_execution_validation": {
+    "status": "PARTIAL",
+    "runtime_status": "FAILED",
+    "exit_code": 1,
+    "failure": "No module named pytest",
+    "repository_changed": false
+  },
+  "workflow": [
+    "SCAN:COMPLETED",
+    "INDEX:COMPLETED",
+    "ANALYZE:COMPLETED",
+    "RUNTIME_PLAN:COMPLETED",
+    "REPORT:COMPLETED"
+  ]
+}
