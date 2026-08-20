@@ -1,0 +1,30 @@
+{
+  "relay": "https://ai.centos.hk/v1",
+  "credentials_recorded": false,
+  "tested_models": [
+    "claude-sonnet-4-6",
+    "claude-haiku-4-5-20251001"
+  ],
+  "smoke_test": {
+    "status": "PASSED",
+    "model": "claude-sonnet-4-6",
+    "response_contract": "exact JSON object"
+  },
+  "best_partial_run": {
+    "model": "claude-sonnet-4-6",
+    "architecture_status": "COMPLETED",
+    "accepted_claims": 4,
+    "rejected_claims": 1,
+    "rejected_reason": "negative dependency claim had no source evidence",
+    "learning_status": "FAILED",
+    "failure": "relay closed or timed out a long-running model request near 60 seconds"
+  },
+  "client_issues_found_and_fixed": [
+    "explicit User-Agent required to avoid relay HTTP 403 / error 1010",
+    "real models may wrap JSON in Markdown fences or short explanatory text",
+    "model timeout must be separate from runtime-test timeout",
+    "OpenAI-compatible responses can be consumed as SSE to avoid idle buffering after first byte"
+  ],
+  "remaining_external_issue": "The relay may close complex Claude requests before the first streamed event.",
+  "end_to_end_evaluation": "NOT_PASSED"
+}

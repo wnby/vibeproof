@@ -27,6 +27,7 @@ from vibeproof.schemas import (
     RepositoryManifest,
     VerificationStatus,
 )
+from vibeproof.structured_output import StructuredOutputError, normalize_json_object
 
 SYSTEM_PROMPT = """You are VibeProof's repository analyst.
 
@@ -230,10 +231,10 @@ class RepositoryAnalystAgent:
                 )
 
             try:
-                action = AgentAction.model_validate_json(raw_action)
-            except ValidationError as exc:
+                action = AgentAction.model_validate_json(normalize_json_object(raw_action))
+            except (StructuredOutputError, ValidationError) as exc:
                 invalid_actions += 1
-                error = _validation_summary(exc)
+                error = _validation_summary(exc) if isinstance(exc, ValidationError) else str(exc)
                 trace.append(AgentTraceStep(step=step, action="INVALID_ACTION", error=error))
                 feedback = f"Previous output was rejected: {error}. Return one valid action JSON object."
                 if invalid_actions >= self.policy.max_invalid_actions:

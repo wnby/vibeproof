@@ -25,6 +25,7 @@ from vibeproof.schemas import (
     QuizQuestionDraft,
     RepositoryManifest,
 )
+from vibeproof.structured_output import StructuredOutputError, normalize_json_object
 
 TUTOR_SYSTEM_PROMPT = """You are VibeProof's repository tutor.
 
@@ -156,9 +157,10 @@ class RepositoryTutorAgent:
         except ModelClientError as exc:
             return self._failed_plan(manifest, str(exc))
         try:
-            draft = LearningPlanDraft.model_validate_json(raw)
-        except ValidationError as exc:
-            return self._failed_plan(manifest, _validation_summary(exc))
+            draft = LearningPlanDraft.model_validate_json(normalize_json_object(raw))
+        except (StructuredOutputError, ValidationError) as exc:
+            warning = _validation_summary(exc) if isinstance(exc, ValidationError) else str(exc)
+            return self._failed_plan(manifest, warning)
 
         observed = {item.chunk_id: item for item in selection.evidence}
         review = self.reviewer.review(draft, observed, manifest.snapshot_id)

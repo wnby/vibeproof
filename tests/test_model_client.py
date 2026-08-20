@@ -109,6 +109,24 @@ def test_model_factory_uses_default_ollama_url_when_environment_is_blank(monkeyp
     assert client.base_url == "http://127.0.0.1:11434"
 
 
+def test_model_factory_uses_configured_network_timeout(monkeypatch) -> None:
+    monkeypatch.setenv("VIBEPROOF_AI_MODEL", "relay-model")
+    monkeypatch.setenv("VIBEPROOF_AI_TIMEOUT_SECONDS", "240")
+
+    client = create_model_client("openai-compatible", base_url="https://models.example/v1")
+
+    assert isinstance(client, OpenAICompatibleModelClient)
+    assert client.timeout_seconds == 240
+
+
+def test_model_factory_rejects_invalid_network_timeout(monkeypatch) -> None:
+    monkeypatch.setenv("VIBEPROOF_AI_MODEL", "relay-model")
+    monkeypatch.setenv("VIBEPROOF_AI_TIMEOUT_SECONDS", "never")
+
+    with pytest.raises(ModelConfigurationError, match="must be a number"):
+        create_model_client("openai-compatible")
+
+
 def test_openai_compatible_client_uses_chat_completion_shape(monkeypatch) -> None:
     captured = {}
 
@@ -121,6 +139,7 @@ def test_openai_compatible_client_uses_chat_completion_shape(monkeypatch) -> Non
         model="test-model",
         base_url="https://models.example/v1/",
         api_key="secret-test-key",
+        stream=False,
     )
 
     content = client.complete([ModelMessage(role="user", content="hello")])
@@ -128,7 +147,49 @@ def test_openai_compatible_client_uses_chat_completion_shape(monkeypatch) -> Non
     assert content == '{"action":"FINAL_ANSWER"}'
     assert captured["url"] == "https://models.example/v1/chat/completions"
     assert captured["payload"]["messages"] == [{"role": "user", "content": "hello"}]
+    assert captured["payload"]["stream"] is False
     assert captured["headers"]["Authorization"] == "Bearer secret-test-key"
+    assert captured["headers"]["User-Agent"].startswith("VibeProof/")
+
+
+def test_openai_compatible_client_assembles_streamed_content(monkeypatch) -> None:
+    captured = {}
+
+    def fake_stream(url, payload, headers, timeout_seconds):
+        captured.update(url=url, payload=payload, headers=headers, timeout=timeout_seconds)
+        return '{"action":"FINAL_ANSWER"}'
+
+    monkeypatch.setattr("vibeproof.model_client._post_openai_sse", fake_stream)
+    client = OpenAICompatibleModelClient(model="test-model", base_url="https://models.example/v1")
+
+    content = client.complete([ModelMessage(role="user", content="hello")])
+
+    assert content == '{"action":"FINAL_ANSWER"}'
+    assert captured["payload"]["stream"] is True
+    assert captured["url"] == "https://models.example/v1/chat/completions"
+
+
+def test_openai_sse_parser_joins_delta_content(monkeypatch) -> None:
+    class FakeResponse:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, traceback):
+            return False
+
+        def __iter__(self):
+            return iter(
+                [
+                    b'data: {"choices":[{"delta":{"content":"{\\"ok\\":"}}]}\n',
+                    b'data: {"choices":[{"delta":{"content":"true}"}}]}\n',
+                    b"data: [DONE]\n",
+                ]
+            )
+
+    monkeypatch.setattr("vibeproof.model_client.urlopen", lambda request, timeout: FakeResponse())
+    client = OpenAICompatibleModelClient(model="test-model", base_url="https://models.example/v1")
+
+    assert client.complete([ModelMessage(role="user", content="hello")]) == '{"ok":true}'
 
 
 def test_ollama_client_requests_non_streaming_json(monkeypatch) -> None:
@@ -147,3 +208,4 @@ def test_ollama_client_requests_non_streaming_json(monkeypatch) -> None:
     assert captured["url"] == "http://127.0.0.1:11434/api/chat"
     assert captured["payload"]["stream"] is False
     assert captured["payload"]["format"] == "json"
+    assert captured["headers"]["User-Agent"].startswith("VibeProof/")

@@ -140,7 +140,7 @@ def test_invalid_tutor_output_becomes_failed_learning_plan(tmp_path: Path) -> No
 
     assert plan.status == LearningPlanStatus.FAILED
     assert plan.units == []
-    assert "Invalid JSON" in plan.warnings[0]
+    assert "did not contain a JSON object" in plan.warnings[0]
 
 
 def test_mock_tutor_output_is_deterministic_for_same_state(tmp_path: Path) -> None:

@@ -40,5 +40,6 @@
       "model_failures": 0
     }
   ],
-  "real_model_test": "PENDING_OPENAI_COMPATIBLE_RELAY"
+  "real_model_test": "EXECUTED_WITH_PARTIAL_RESULT",
+  "real_model_summary": "relay-evaluation-summary.json"
 }

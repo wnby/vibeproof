@@ -13,6 +13,8 @@ from typing import Protocol
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
+VIBEPROOF_USER_AGENT = "VibeProof/0.1 (+https://github.com/wnby/vibeproof)"
+
 
 class ModelClientError(RuntimeError):
     pass
@@ -183,7 +185,8 @@ class OpenAICompatibleModelClient:
         model: str,
         base_url: str,
         api_key: str | None = None,
-        timeout_seconds: float = 60.0,
+        timeout_seconds: float = 180.0,
+        stream: bool = True,
     ):
         if not model.strip():
             raise ModelConfigurationError("a model name is required for openai-compatible provider")
@@ -193,16 +196,28 @@ class OpenAICompatibleModelClient:
         self.base_url = base_url.rstrip("/")
         self.api_key = api_key
         self.timeout_seconds = timeout_seconds
+        self.stream = stream
 
     def complete(self, messages: list[ModelMessage]) -> str:
         payload = {
             "model": self.model,
             "messages": [{"role": message.role, "content": message.content} for message in messages],
             "temperature": 0,
+            "stream": self.stream,
         }
-        headers = {"Content-Type": "application/json"}
+        headers = {
+            "Content-Type": "application/json",
+            "User-Agent": VIBEPROOF_USER_AGENT,
+        }
         if self.api_key:
             headers["Authorization"] = f"Bearer {self.api_key}"
+        if self.stream:
+            return _post_openai_sse(
+                f"{self.base_url}/chat/completions",
+                payload,
+                headers=headers,
+                timeout_seconds=self.timeout_seconds,
+            )
         response = _post_json(
             f"{self.base_url}/chat/completions",
             payload,
@@ -241,7 +256,7 @@ class OllamaModelClient:
         response = _post_json(
             f"{self.base_url}/api/chat",
             payload,
-            headers={"Content-Type": "application/json"},
+            headers={"Content-Type": "application/json", "User-Agent": VIBEPROOF_USER_AGENT},
             timeout_seconds=self.timeout_seconds,
         )
         try:
@@ -272,6 +287,13 @@ def create_model_client(
         }
         return clients[normalized_task]()
     resolved_model = (model or os.getenv("VIBEPROOF_AI_MODEL", "")).strip()
+    configured_timeout = os.getenv("VIBEPROOF_AI_TIMEOUT_SECONDS", "").strip()
+    try:
+        resolved_timeout = float(configured_timeout) if configured_timeout else None
+    except ValueError as exc:
+        raise ModelConfigurationError("VIBEPROOF_AI_TIMEOUT_SECONDS must be a number") from exc
+    if resolved_timeout is not None and resolved_timeout <= 0:
+        raise ModelConfigurationError("VIBEPROOF_AI_TIMEOUT_SECONDS must be greater than zero")
     if normalized == "openai-compatible":
         configured_url = os.getenv("VIBEPROOF_AI_BASE_URL", "").strip()
         resolved_url = (base_url or configured_url or "https://api.openai.com/v1").strip()
@@ -279,11 +301,16 @@ def create_model_client(
             model=resolved_model,
             base_url=resolved_url,
             api_key=os.getenv("VIBEPROOF_AI_API_KEY") or None,
+            timeout_seconds=resolved_timeout or 180.0,
         )
     if normalized == "ollama":
         configured_url = os.getenv("VIBEPROOF_AI_BASE_URL", "").strip()
         resolved_url = (base_url or configured_url or "http://127.0.0.1:11434").strip()
-        return OllamaModelClient(model=resolved_model, base_url=resolved_url)
+        return OllamaModelClient(
+            model=resolved_model,
+            base_url=resolved_url,
+            timeout_seconds=resolved_timeout or 120.0,
+        )
     raise ModelConfigurationError("provider must be one of: mock, openai-compatible, ollama")
 
 
@@ -314,6 +341,50 @@ def _post_json(
     if not isinstance(decoded, dict):
         raise ModelClientError("model endpoint returned a non-object JSON response")
     return decoded
+
+
+def _post_openai_sse(
+    url: str,
+    payload: dict[str, object],
+    headers: dict[str, str],
+    timeout_seconds: float,
+) -> str:
+    request = Request(
+        url,
+        data=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
+        headers=headers,
+        method="POST",
+    )
+    parts: list[str] = []
+    try:
+        with urlopen(request, timeout=timeout_seconds) as response:  # noqa: S310 - URL is explicit operator config
+            for raw_line in response:
+                try:
+                    line = raw_line.decode("utf-8").strip()
+                except UnicodeDecodeError as exc:
+                    raise ModelClientError("model stream contained invalid UTF-8") from exc
+                if not line.startswith("data:"):
+                    continue
+                data = line[5:].strip()
+                if data == "[DONE]":
+                    break
+                try:
+                    event = json.loads(data)
+                    delta = event["choices"][0]["delta"]
+                except (json.JSONDecodeError, KeyError, IndexError, TypeError) as exc:
+                    raise ModelClientError("model stream contained an invalid chat-completions event") from exc
+                content = delta.get("content") if isinstance(delta, dict) else None
+                if isinstance(content, str):
+                    parts.append(content)
+    except HTTPError as exc:
+        detail = exc.read(1_000).decode("utf-8", errors="replace")
+        raise ModelClientError(f"model endpoint returned HTTP {exc.code}: {detail}") from exc
+    except (TimeoutError, URLError, OSError) as exc:
+        raise ModelClientError(f"model endpoint request failed: {exc}") from exc
+    content = "".join(parts)
+    if not content.strip():
+        raise ModelClientError("model stream contained no message content")
+    return content
 
 
 def _extract_state(messages: list[ModelMessage]) -> dict[str, object]:

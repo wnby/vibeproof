@@ -27,8 +27,8 @@ Day 8 没有继续增加新的 Agent 角色，而是为已经完成的 MVP 增�
 
 ## 模型测试边界
 
-Day 8 开发阶段只使用 Mock 验证工程路径，没有调用 Ollama 或外部 API。真实模型将通过用户提供的
-OpenAI-compatible 中转站测试，密钥只进入临时环境变量，不提交到 Git 或示例文件。
+Day 8 首先使用 Mock 验证工程路径，随后通过用户提供的 OpenAI-compatible 中转站测试 Claude Sonnet
+4.6 和 Claude Haiku 4.5。密钥只进入交互式临时变量，没有写入命令、报告或 Git。
 
 ## 本地验收
 
@@ -38,3 +38,15 @@ OpenAI-compatible 中转站测试，密钥只进入临时环境变量，不提�
 - 两个真实仓库均为计划式 Runtime，模型调用 5 次、传输失败 0 次。
 
 以上数据来自确定性 Mock，用于证明评估框架可复现；不能替代后续中转站真实模型测试。
+
+## 中转站真实测试结果
+
+短 JSON 冒烟请求成功。首次完整 Sonnet Eval 暴露 `urllib` 默认请求被网关以 403/1010 拒绝；加入明确
+User-Agent 后网络可用。随后真实模型返回 Markdown 包装 JSON，促成了有限结构化输出规范化层。Sonnet
+最好的一次运行完成 3 次架构请求，产出 4 条有效结论；CitationReviewer 同时拒绝了 1 条没有证据的
+“无外部依赖”结论，说明引用审查在真实模型下生效。
+
+完整 Eval 最终没有通过：教学请求及后续 Haiku 请求多次在约 60 秒被中转站主动关闭。将客户端超时
+提升至 180 秒、改用原生 `/v1/messages`、以及启用 OpenAI SSE 后仍能复现，表明剩余限制位于中转站
+或上游首次数据之前，而非 VibeProof 的读取超时。项目如实保存 `MODEL_ERROR` 和 `FAILED` Eval，不把
+部分成功包装成完整通过。

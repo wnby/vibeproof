@@ -27,6 +27,7 @@ from vibeproof.schemas import (
     ReviewMode,
     TakeoverReport,
 )
+from vibeproof.structured_output import normalize_json_object
 
 ANSWER_REVIEW_SYSTEM_PROMPT = """You are VibeProof's answer reviewer.
 
@@ -147,7 +148,7 @@ class AnswerReviewAgent:
         ]
         try:
             raw = self.model.complete(messages)
-            draft = AnswerAssessmentDraft.model_validate_json(raw)
+            draft = AnswerAssessmentDraft.model_validate_json(normalize_json_object(raw))
             _validate_draft(draft, question)
         except (ModelClientError, ValidationError, ValueError) as exc:
             return AnswerAssessment(

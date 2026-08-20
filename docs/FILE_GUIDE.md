@@ -40,6 +40,7 @@
 - `review_reporting.py`：把逐题评审和学习进度渲染为 Markdown。
 - `evaluator.py`：按显式用例确定性评估接管状态、引用、学习覆盖和运行结果。
 - `evaluation_reporting.py`：把 Eval 指标和接管摘要渲染为 Markdown。
+- `structured_output.py`：有限兼容真实模型的 JSON 围栏包装，再交给严格数据模型校验。
 - `cli.py`：定义全部命令行参数、业务服务调用、文件输出和退出码。
 - `api.py`：提供只允许扫描配置工作区内部路径的 FastAPI 接口。
 
@@ -59,6 +60,7 @@
 - `test_answer_reviewer.py`：验证语义评分、Mock 结构模式和答案引用边界。
 - `test_review_reporting.py`：验证 Markdown 学习报告的关键内容。
 - `test_evaluator.py`：验证 Eval 指标、用例文件和三个固定仓库场景。
+- `test_structured_output.py`：验证真实模型 JSON 包装兼容和歧义输出拒绝边界。
 - `test_cli.py`：验证各子命令和完整学习闭环的端到端行为。
 - `test_api.py`：验证 API 正常扫描及工作区路径限制。
 
@@ -88,6 +90,7 @@
 - `vibeproof-runtime-summary.json`：VibeProof 对自身执行 pytest 后保存的运行证据摘要。
 - `quiz-submission.example.json`：说明答题文件字段结构的示例；实际使用时应通过 `quiz` 命令生成身份信息。
 - `evaluation-suite-summary.json`：三个 Mock 固定评估场景的结果与真实模型待测状态。
+- `relay-evaluation-summary.json`：脱敏记录星辰 AI Claude 实测、客户端修复和剩余上游限制。
 
 ## 评估场景 `evals/`
 

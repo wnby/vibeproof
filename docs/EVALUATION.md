@@ -67,6 +67,7 @@ $env:VIBEPROOF_AI_PROVIDER = "openai-compatible"
 $env:VIBEPROOF_AI_MODEL = "中转站提供的模型名"
 $env:VIBEPROOF_AI_BASE_URL = "https://中转站地址/v1"
 $env:VIBEPROOF_AI_API_KEY = "临时 API Key"
+$env:VIBEPROOF_AI_TIMEOUT_SECONDS = "180"
 
 uv run python -m vibeproof eval D:\projects\demo `
   --provider openai-compatible `
@@ -81,6 +82,21 @@ Remove-Item Env:VIBEPROOF_AI_API_KEY
 ```
 
 真实模型验收时至少检查 Eval 指标、模型输出内容、耗时、失败阶段和被拒绝引用；不能只看命令退出码。
+
+### 星辰 AI 实测记录
+
+`https://ai.centos.hk/v1` 同时暴露 OpenAI Chat Completions 和 Anthropic Messages。测试过
+`claude-sonnet-4-6` 与 `claude-haiku-4-5-20251001`，未记录 API Key。
+
+- 短 JSON 请求成功，证明地址、Key 和模型名可用。
+- Python 默认 User-Agent 会被返回 403/1010，现已改为明确的 VibeProof User-Agent。
+- Sonnet 会输出 Markdown 包装 JSON，现由有限规范化层提取后继续执行严格 Pydantic 校验。
+- 最佳 Sonnet 架构运行接受 4 条有证据结论，并拒绝 1 条无证据结论。
+- 教学阶段和其他复杂请求可能在约 60 秒被中转站关闭；180 秒客户端超时、原生 Anthropic 端点和 SSE
+  都不能消除首次响应数据之前的上游关闭。
+
+因此本次真实 Eval 为部分成功而非端到端通过。再次测试前应先向中转站确认长推理请求、首字节超时和
+流式转发策略，或选择能够在该网关首字节限制内稳定响应的模型线路。
 
 ## 自定义用例
 
