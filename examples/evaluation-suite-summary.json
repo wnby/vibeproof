@@ -1,0 +1,44 @@
+{
+  "provider": "mock",
+  "purpose": "Deterministic evaluation-framework validation, not semantic model scoring.",
+  "cases": [
+    {
+      "case_id": "healthy-service",
+      "evaluation_status": "PASSED",
+      "expected_runtime_status": "PASSED"
+    },
+    {
+      "case_id": "broken-service",
+      "evaluation_status": "PASSED",
+      "expected_runtime_status": "FAILED"
+    },
+    {
+      "case_id": "ambiguous-agent",
+      "evaluation_status": "PASSED",
+      "expected_runtime_status": "PLANNED"
+    }
+  ],
+  "repository_validations": [
+    {
+      "repository": "vibeproof",
+      "evaluation_status": "PASSED",
+      "takeover_status": "COMPLETED",
+      "claims": 5,
+      "learning_units": 4,
+      "quiz_questions": 4,
+      "model_calls": 5,
+      "model_failures": 0
+    },
+    {
+      "repository": "mindbridge-py",
+      "evaluation_status": "PASSED",
+      "takeover_status": "COMPLETED",
+      "claims": 5,
+      "learning_units": 4,
+      "quiz_questions": 4,
+      "model_calls": 5,
+      "model_failures": 0
+    }
+  ],
+  "real_model_test": "PENDING_OPENAI_COMPATIBLE_RELAY"
+}

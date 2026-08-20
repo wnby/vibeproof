@@ -40,6 +40,8 @@ Implemented:
 - an `AnswerReviewAgent` with per-question source excerpts, rubric-based scoring, and citation review
 - Markdown/JSON learning progress reports with weak-unit recommendations
 - task-specific offline analyst, tutor, and structure-only reviewer models for reproducible demos without a paid API
+- deterministic Agent Eval metrics for workflow status, citation integrity, learning coverage, and runtime expectations
+- healthy, intentionally broken, and async multi-component evaluation fixtures
 
 Not implemented yet:
 
@@ -77,6 +79,16 @@ uv run python -m vibeproof review reports/takeover.json reports/answers.json \
 `--provider mock` is also available for `review`, but deliberately performs structure-only validation and returns no
 semantic score. The review reads source evidence from `--database` (default `.vibeproof/index.sqlite3`) and never runs
 or modifies the target repository.
+
+Evaluate the complete takeover against deterministic quality gates:
+
+```bash
+uv run python -m vibeproof eval /path/to/python-repository \
+  --provider mock --format markdown --output reports/evaluation.md
+```
+
+Use `--case` for explicit expectations, including known runtime failures. See
+[docs/EVALUATION.md](docs/EVALUATION.md) for the built-in fixtures and OpenAI-compatible relay configuration.
 
 Explicitly execute the fixed test check as part of takeover:
 
@@ -207,7 +219,8 @@ validated; it does not claim that model-authored semantics were deterministicall
 4. ~~Repository takeover report and replayable workflow trace~~
 5. ~~Source-grounded learning plans and quiz generation~~
 6. ~~Evidence-backed answer review and learning progress~~
+7. ~~Deterministic Agent Eval and repeatable failure fixtures~~
 
 See [docs/MVP.md](docs/MVP.md), [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs/DAY2.md](docs/DAY2.md),
 [docs/DAY3.md](docs/DAY3.md), [docs/DAY4.md](docs/DAY4.md), [docs/DAY5.md](docs/DAY5.md), and
-[docs/DAY6.md](docs/DAY6.md), and [docs/DAY7.md](docs/DAY7.md).
+[docs/DAY6.md](docs/DAY6.md), [docs/DAY7.md](docs/DAY7.md), and [docs/DAY8.md](docs/DAY8.md).

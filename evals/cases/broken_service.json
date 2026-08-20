@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.0",
+  "case_id": "broken-service",
+  "name": "Known broken service preserves failure evidence",
+  "description": "The runtime test is expected to fail while source analysis and learning still succeed.",
+  "expectations": {
+    "expected_takeover_status": "PARTIAL",
+    "expected_runtime_status": "FAILED",
+    "minimum_claims": 2,
+    "maximum_rejected_claims": 0,
+    "minimum_learning_units": 2,
+    "minimum_quiz_questions": 2,
+    "required_evidence_paths": ["app.py", "test_app.py"],
+    "require_source_grounded_learning": true,
+    "require_unit_question_coverage": true,
+    "require_current_snapshot_citations": true,
+    "require_unchanged_repository": true
+  }
+}

@@ -38,6 +38,8 @@
 - `quiz.py`：从 JSON 接管报告生成答题模板，并负责报告和答题文件的严格解析。
 - `answer_reviewer.py`：根据题目、评分点和限定源码证据评审答案，计算学习进度。
 - `review_reporting.py`：把逐题评审和学习进度渲染为 Markdown。
+- `evaluator.py`：按显式用例确定性评估接管状态、引用、学习覆盖和运行结果。
+- `evaluation_reporting.py`：把 Eval 指标和接管摘要渲染为 Markdown。
 - `cli.py`：定义全部命令行参数、业务服务调用、文件输出和退出码。
 - `api.py`：提供只允许扫描配置工作区内部路径的 FastAPI 接口。
 
@@ -56,6 +58,7 @@
 - `test_quiz.py`：验证答题模板创建、身份保留和 JSON 文件错误处理。
 - `test_answer_reviewer.py`：验证语义评分、Mock 结构模式和答案引用边界。
 - `test_review_reporting.py`：验证 Markdown 学习报告的关键内容。
+- `test_evaluator.py`：验证 Eval 指标、用例文件和三个固定仓库场景。
 - `test_cli.py`：验证各子命令和完整学习闭环的端到端行为。
 - `test_api.py`：验证 API 正常扫描及工作区路径限制。
 
@@ -70,6 +73,8 @@
 - `DAY5.md`：记录统一接管协调器和阶段化报告。
 - `DAY6.md`：记录源码证据驱动的学习计划和测验生成。
 - `DAY7.md`：记录答题模板、证据化答案评审和学习进度闭环。
+- `DAY8.md`：记录确定性 Agent Eval、固定场景和真实模型测试边界。
+- `EVALUATION.md`：说明指标、自定义用例、中转站配置和 Eval 命令。
 - `FILE_GUIDE.md`：当前文件，集中解释仓库内各文件的职责。
 
 ## 示例 `examples/`
@@ -82,3 +87,16 @@
 - `mindbridge-review-summary.json`：MindBridge 答案文件在 Mock 结构评审模式下的验证摘要。
 - `vibeproof-runtime-summary.json`：VibeProof 对自身执行 pytest 后保存的运行证据摘要。
 - `quiz-submission.example.json`：说明答题文件字段结构的示例；实际使用时应通过 `quiz` 命令生成身份信息。
+- `evaluation-suite-summary.json`：三个 Mock 固定评估场景的结果与真实模型待测状态。
+
+## 评估场景 `evals/`
+
+- `cases/healthy_service.json`：声明正常服务应完整接管并通过 pytest。
+- `cases/broken_service.json`：声明已知缺陷服务应保留 FAILED 运行证据。
+- `cases/ambiguous_agent.json`：声明异步多组件场景的计划式接管预期。
+- `fixtures/healthy_service/app.py`：正常服务的业务函数。
+- `fixtures/healthy_service/test_app.py`：正常服务的两个通过测试。
+- `fixtures/broken_service/app.py`：故意保留税额计算缺陷的业务函数。
+- `fixtures/broken_service/test_app.py`：稳定暴露缺陷的失败测试。
+- `fixtures/ambiguous_agent/service.py`：Coordinator、Worker 和异步 gather 实现。
+- `fixtures/ambiguous_agent/test_service.py`：验证异步协调结果的测试。

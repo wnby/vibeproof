@@ -204,3 +204,34 @@ def test_quiz_and_review_cli_close_learning_loop(tmp_path: Path) -> None:
     assert "Review mode: `STRUCTURE_ONLY`" in rendered
     assert "Answered: `1/1`" in rendered
     assert "Semantically assessed: `0/1`" in rendered
+
+
+def test_eval_cli_writes_plan_only_markdown_report(tmp_path: Path) -> None:
+    repository = tmp_path / "repository"
+    repository.mkdir()
+    (repository / "app.py").write_text(
+        "def repository_entrypoint() -> str:\n    return 'ready'\n",
+        encoding="utf-8",
+    )
+    output = tmp_path / "evaluation.md"
+
+    exit_code = main(
+        [
+            "eval",
+            str(repository),
+            "--provider",
+            "mock",
+            "--database",
+            str(tmp_path / "index.sqlite3"),
+            "--format",
+            "markdown",
+            "--output",
+            str(output),
+        ]
+    )
+
+    rendered = output.read_text(encoding="utf-8")
+    assert exit_code == 0
+    assert "# Agent evaluation" in rendered
+    assert "Status: `PASSED`" in rendered
+    assert "Runtime verification status" in rendered
