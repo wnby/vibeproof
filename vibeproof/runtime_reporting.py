@@ -1,3 +1,9 @@
+"""把运行验证计划和执行证据渲染为 Markdown。
+
+输出包含实际命令、解释器来源、状态、耗时、退出码和受限的标准输出/错误输出，使“项目是否跑过”
+能够由可复查的运行证据支撑。
+"""
+
 from __future__ import annotations
 
 from vibeproof.schemas import RuntimeVerificationReport

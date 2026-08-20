@@ -1,3 +1,9 @@
+"""集中定义 VibeProof 各阶段共享的严格数据契约。
+
+这里使用 Pydantic 模型和枚举描述仓库清单、源码证据、Agent 动作、架构报告、学习计划、运行结果、
+答题提交与学习进度，并通过字段及跨字段校验阻止不完整或互相矛盾的状态流入系统。
+"""
+
 from __future__ import annotations
 
 from datetime import UTC, datetime

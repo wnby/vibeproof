@@ -1,3 +1,9 @@
+"""编排一条完整且可部分失败的仓库接管工作流。
+
+``TakeoverCoordinator`` 依次组织扫描、索引、架构分析、学习计划和运行验证，记录每个阶段的状态与耗时；
+后续阶段失败时会尽量保留已经获得的可信产物，而不是丢弃整次结果。
+"""
+
 from __future__ import annotations
 
 import sqlite3

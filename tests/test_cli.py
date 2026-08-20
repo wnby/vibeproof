@@ -1,3 +1,9 @@
+"""验证用户可见命令行工作流的端到端行为。
+
+测试串联索引与搜索、架构报告、运行计划与执行、统一接管，以及 takeover、quiz、review 学习闭环，
+同时检查文件输出和退出码是否符合约定。
+"""
+
 import json
 import sys
 from pathlib import Path

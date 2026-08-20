@@ -1,3 +1,4 @@
+# VibeProof 持续集成：在 Linux 上用锁定依赖执行静态检查和全部测试。
 name: ci
 
 on:

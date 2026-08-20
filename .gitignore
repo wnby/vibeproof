@@ -1,3 +1,4 @@
+# VibeProof 不提交本地环境、缓存、证据数据库、构建产物和真实环境变量。
 .venv/
 __pycache__/
 *.py[cod]

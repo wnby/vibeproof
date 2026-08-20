@@ -1,3 +1,9 @@
+"""把架构分析结果渲染为便于人工阅读的 Markdown。
+
+报告会展示分析状态、源码支持的结论、被拒绝的结论、文件行号引用、未解决问题、Agent 轨迹和限制，
+作为 JSON 机器产物之外的可审阅视图。
+"""
+
 from __future__ import annotations
 
 from vibeproof.schemas import ArchitectureReport, EvidenceReference

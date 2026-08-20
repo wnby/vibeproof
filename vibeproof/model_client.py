@@ -1,3 +1,9 @@
+"""统一不同模型提供方的同步结构化调用接口。
+
+本模块包含离线可复现的分析、教学和结构校验 Mock，以及 OpenAI-compatible、Ollama 两种真实模型
+传输实现；上层 Agent 只依赖统一的 ``ModelClient`` 协议。
+"""
+
 from __future__ import annotations
 
 import json

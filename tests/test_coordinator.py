@@ -1,3 +1,9 @@
+"""验证统一接管协调器的阶段编排和降级策略。
+
+测试检查完整流程、学习阶段、实际运行、模型异常和快照变化等情况，确保阶段失败能转成可信的
+COMPLETED、PARTIAL、FAILED 或 SNAPSHOT_CHANGED 状态并保留已有产物。
+"""
+
 from __future__ import annotations
 
 import sys

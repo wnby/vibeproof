@@ -1,3 +1,9 @@
+"""将统一仓库接管结果整理为一份 Markdown 总报告。
+
+该报告串联仓库概况、源码索引、架构结论、学习路径、测验、运行验证和阶段轨迹，让使用者可以从单个
+文档查看哪些结论已有证据、哪些步骤未完成以及当前限制。
+"""
+
 from __future__ import annotations
 
 from vibeproof.schemas import EvidenceReference, TakeoverReport

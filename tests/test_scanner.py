@@ -1,3 +1,9 @@
+"""验证仓库静态扫描器的识别能力和读取边界。
+
+测试构造不同文件、框架和 Git 元数据场景，检查快照确定性、入口与依赖识别，以及敏感文件、二进制、
+大文件、符号链接和越界数量的跳过规则。
+"""
+
 from pathlib import Path
 
 from vibeproof.scanner import RepositoryScanner, ScanPolicy

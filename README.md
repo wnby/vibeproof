@@ -3,6 +3,8 @@
 VibeProof is an evidence-backed onboarding and takeover agent for Python repositories. It helps a developer move from
 "the project runs" to "I can explain, verify, and safely change it."
 
+第一次阅读代码时，可以先看中文的 [文件职责导览](docs/FILE_GUIDE.md)。
+
 The current milestone accepts one local repository path and coordinates scanning, source indexing, architecture
 analysis, citation review, a source-grounded learning path and quiz, and plan-first runtime verification into one report.
 

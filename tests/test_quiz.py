@@ -1,3 +1,9 @@
+"""验证从接管报告生成和读取答题模板的流程。
+
+测试检查报告、学习计划、快照与题目身份是否被完整保留，并确认缺少学习计划、引用不完整或 JSON 格式
+错误时能够给出明确失败信息。
+"""
+
 from __future__ import annotations
 
 from pathlib import Path

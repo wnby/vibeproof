@@ -1,3 +1,9 @@
+"""验证仓库架构分析 Agent 的受限推理和证据审查。
+
+测试覆盖搜索预算、模型失败、非法动作、陈旧或虚构引用、报告状态以及 Markdown 输出，确保分析结论
+必须能追溯到本轮真实观察的源码片段。
+"""
+
 import json
 from dataclasses import dataclass, field
 from pathlib import Path

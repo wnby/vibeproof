@@ -1,3 +1,9 @@
+"""把答案评审结果渲染为 Markdown 学习报告。
+
+本模块汇总完成率、语义评审数量、掌握率和推荐复习单元，并逐题展示状态、分数、反馈、知识缺口及
+对应源码行号，同时明确 Mock 结构校验等评审限制。
+"""
+
 from __future__ import annotations
 
 from vibeproof.schemas import AnswerReviewReport, EvidenceReference, QuizQuestionDraft, TakeoverReport

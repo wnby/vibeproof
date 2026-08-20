@@ -1,3 +1,9 @@
+"""验证跨模块 Pydantic 数据契约中的关键不变量。
+
+测试主动构造合法与矛盾状态，检查源码行号、证据类型、运行计划、运行状态和完成报告等模型能否在系统
+边界及时拒绝无效数据。
+"""
+
 import pytest
 from pydantic import ValidationError
 

@@ -1,3 +1,9 @@
+"""负责接管报告与答题文件之间的转换和文件校验。
+
+本模块读取严格类型的 JSON 接管报告，从其中的源码题目生成带身份信息的空白答题模板，并在评审前
+解析用户提交，避免手写文件格式错误悄悄进入后续流程。
+"""
+
 from __future__ import annotations
 
 from pathlib import Path

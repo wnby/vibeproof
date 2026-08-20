@@ -1,3 +1,9 @@
+"""验证 FastAPI 扫描接口的正常响应和目录边界。
+
+测试通过受控临时工作区调用接口，确认合法相对路径能够生成仓库清单，同时越界、绝对路径和配置错误
+会被拒绝。
+"""
+
 from pathlib import Path
 
 from fastapi.testclient import TestClient

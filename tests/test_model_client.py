@@ -1,3 +1,9 @@
+"""验证统一模型客户端及不同提供方的请求契约。
+
+测试覆盖三个任务专用 Mock、模型工厂配置、OpenAI-compatible 请求结构和 Ollama JSON 模式，保证上层
+Agent 能通过一致接口切换离线演示与真实模型。
+"""
+
 import json
 
 import pytest

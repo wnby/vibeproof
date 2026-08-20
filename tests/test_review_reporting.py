@@ -1,3 +1,9 @@
+"""验证答案评审 Markdown 报告的关键信息展示。
+
+测试确保报告包含评审模式、完成度、逐题状态、源码引用以及 Mock 不进行语义评分的限制，避免机器结构
+转换为人类报告时丢失重要事实。
+"""
+
 from __future__ import annotations
 
 from pathlib import Path

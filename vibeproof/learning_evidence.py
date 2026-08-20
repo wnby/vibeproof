@@ -1,3 +1,9 @@
+"""为仓库教学 Agent 选择有限且有代表性的源码证据。
+
+选择器综合架构报告引用、入口文件、测试、框架和依赖信息，在查询次数和证据数量预算内构造学习
+上下文，防止把整个仓库无边界地塞入模型提示词。
+"""
+
 from __future__ import annotations
 
 from dataclasses import dataclass

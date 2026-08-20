@@ -1,3 +1,9 @@
+"""实现根据真实源码生成学习路径和测验的仓库教学 Agent。
+
+教学 Agent 消费有限的源码证据与架构结论，要求模型返回结构化学习单元、练习和问题，再由独立审查器
+验证单元顺序、题目关系及每条引用，生成可追溯的 ``LearningPlan``。
+"""
+
 from __future__ import annotations
 
 import json

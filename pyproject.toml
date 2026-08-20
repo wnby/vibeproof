@@ -1,3 +1,4 @@
+# VibeProof 的包元数据、依赖版本以及测试、格式检查和构建工具配置。
 [project]
 name = "vibeproof"
 version = "0.1.0"

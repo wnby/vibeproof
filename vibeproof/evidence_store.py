@@ -1,3 +1,9 @@
+"""管理本地 SQLite 源码证据索引。
+
+本模块保存仓库快照、Python 符号、源码分块和导入关系，并提供确定性的检索、批量引用加载与有长度
+上限的源码摘录，供分析、教学和答案评审阶段复用同一份证据。
+"""
+
 from __future__ import annotations
 
 import json

@@ -1,3 +1,9 @@
+"""定义 VibeProof 的命令行入口和各子命令编排。
+
+这里负责解析 scan、index、search、analyze、verify、takeover、quiz、review 和 serve 参数，将请求交给
+对应业务服务，再以 JSON 或 Markdown 输出结果和规范化退出码。
+"""
+
 from __future__ import annotations
 
 import argparse

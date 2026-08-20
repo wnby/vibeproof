@@ -1,3 +1,9 @@
+"""验证教学阶段的源码证据选择策略。
+
+测试确认选择器会综合架构、入口、测试和依赖等来源，同时遵守查询数、结果数和总证据预算，并保持
+去重与确定性顺序。
+"""
+
 from __future__ import annotations
 
 from pathlib import Path

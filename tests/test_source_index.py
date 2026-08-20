@@ -1,3 +1,9 @@
+"""验证 Python AST 源码索引的结构抽取和完整性保护。
+
+测试覆盖类、同步与异步函数、方法、签名、装饰器、导入关系、稳定分块，以及扫描后文件被修改或语法
+无效时的处理，确认索引过程不会执行目标代码。
+"""
+
 from pathlib import Path
 
 from vibeproof.scanner import RepositoryScanner
