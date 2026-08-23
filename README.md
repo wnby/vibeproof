@@ -7,6 +7,9 @@ VibeProof is an evidence-backed onboarding and takeover agent for Python reposit
 
 The current milestone accepts one local repository path and coordinates scanning, source indexing, architecture
 analysis, citation review, a source-grounded learning path and quiz, and plan-first runtime verification into one report.
+The same workflow is available through a Codex-inspired local Web workspace.
+
+![VibeProof Web workspace](docs/assets/vibeproof-web.png)
 
 ## Status
 
@@ -17,7 +20,7 @@ Implemented:
 - sensitive-file, binary-file, symlink, size, and file-count safeguards
 - `RepositoryManifest`, `Evidence`, and `TakeoverReport` contracts
 - read-only Git metadata parsing without executing repository hooks
-- CLI and restricted FastAPI scan endpoint
+- CLI, restricted FastAPI repository APIs, and a local Web takeover workspace
 - unit tests and GitHub Actions CI
 - an example manifest generated from the MindBridge repository
 - AST-based classes, functions, async functions, decorators, docstrings, and import extraction
@@ -42,6 +45,7 @@ Implemented:
 - task-specific offline analyst, tutor, and structure-only reviewer models for reproducible demos without a paid API
 - deterministic Agent Eval metrics for workflow status, citation integrity, learning coverage, and runtime expectations
 - healthy, intentionally broken, and async multi-component evaluation fixtures
+- Codex-inspired task activity, result tabs, runtime terminal, and source-evidence inspector
 
 Not implemented yet:
 
@@ -176,6 +180,10 @@ export VIBEPROOF_WORKSPACE_ROOT=/path/to/repositories
 uv run python -m vibeproof serve
 ```
 
+Open `http://127.0.0.1:8000` to use the Web workspace. Enter a path relative to
+`VIBEPROOF_WORKSPACE_ROOT`, choose a configured provider, and start takeover. The browser never accepts or stores API
+keys. Agent activity is shown in neutral gray; green, amber, and red are reserved for evidence outcomes.
+
 On PowerShell:
 
 ```powershell
@@ -191,6 +199,23 @@ Content-Type: application/json
 
 {"relativePath":"my-python-project"}
 ```
+
+Run the complete plan-first workflow from the Web API:
+
+```http
+POST /api/v1/repositories/takeover
+Content-Type: application/json
+
+{
+  "relativePath": "my-python-project",
+  "provider": "mock",
+  "executeRuntime": false,
+  "runtimeCheck": "pytest"
+}
+```
+
+`executeRuntime` must be explicitly enabled before the fixed pytest command is run. Clicking a verified claim in the
+Web workspace requests only its bounded, repository-confined source range from `/api/v1/repositories/source`.
 
 ## Development
 
