@@ -1,20 +1,20 @@
 /* VibeProof Web 工作台的视觉系统：实现 Codex 风格三栏布局，并以中性灰表达 Agent 活动。 */
 :root {
-  color-scheme: dark;
-  --canvas: #141414;
-  --sidebar: #101010;
-  --panel: #191919;
-  --panel-raised: #1f1f1f;
-  --panel-hover: #242424;
-  --border: #2c2c2c;
-  --border-strong: #3a3a3a;
-  --text: #ececec;
-  --text-muted: #999;
-  --text-faint: #6f6f6f;
-  --activity: #8c8c8c;
-  --success: #65b985;
-  --warning: #d6a85c;
-  --danger: #d87373;
+  color-scheme: light;
+  --canvas: #f8f8f6;
+  --sidebar: #f1f1ef;
+  --panel: #ffffff;
+  --panel-raised: #fafaf8;
+  --panel-hover: #e9e9e6;
+  --border: #dfdfdb;
+  --border-strong: #cbcbc6;
+  --text: #20201f;
+  --text-muted: #6e6e69;
+  --text-faint: #92928b;
+  --activity: #898982;
+  --success: #347c50;
+  --warning: #98671d;
+  --danger: #b44b4b;
   --radius: 9px;
   --font-ui: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --font-code: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
@@ -76,10 +76,10 @@ button {
   width: 25px;
   height: 25px;
   place-items: center;
-  border: 1px solid #555;
+  border: 1px solid #20201f;
   border-radius: 7px;
-  background: #e7e7e7;
-  color: #171717;
+  background: #20201f;
+  color: #fff;
   font-family: var(--font-code);
   font-size: 12px;
   font-weight: 800;
@@ -94,7 +94,7 @@ button {
   padding: 9px 10px;
   border: 1px solid var(--border);
   border-radius: 8px;
-  background: #1b1b1b;
+  background: #fff;
   cursor: pointer;
   text-align: left;
 }
@@ -144,7 +144,7 @@ button {
 
 .recent-run:hover,
 .recent-run.active {
-  background: #1d1d1d;
+  background: #e7e7e3;
 }
 
 .recent-run strong,
@@ -191,7 +191,7 @@ button {
   height: 7px;
   border-radius: 50%;
   background: var(--success);
-  box-shadow: 0 0 0 3px rgb(101 185 133 / 10%);
+  box-shadow: 0 0 0 3px rgb(52 124 80 / 10%);
 }
 
 .workspace {
@@ -208,7 +208,7 @@ button {
   justify-content: space-between;
   padding: 0 22px;
   border-bottom: 1px solid var(--border);
-  background: rgb(20 20 20 / 94%);
+  background: rgb(248 248 246 / 94%);
   backdrop-filter: blur(12px);
 }
 
@@ -230,7 +230,7 @@ button {
 }
 
 .breadcrumb-separator {
-  color: #4f4f4f;
+  color: #b4b4ae;
 }
 
 .run-state {
@@ -309,7 +309,7 @@ button {
 .field label {
   display: block;
   margin-bottom: 8px;
-  color: #b8b8b8;
+  color: #555551;
   font-size: 11px;
   font-weight: 600;
 }
@@ -320,7 +320,7 @@ button {
   overflow: hidden;
   border: 1px solid var(--border-strong);
   border-radius: 8px;
-  background: #151515;
+  background: #fff;
 }
 
 .path-prefix {
@@ -337,14 +337,14 @@ select {
   border: 1px solid var(--border-strong);
   border-radius: 7px;
   outline: 0;
-  background: #151515;
+  background: #fff;
   color: var(--text);
 }
 
 input:focus,
 select:focus,
 .path-input-row:focus-within {
-  border-color: #646464;
+  border-color: #8d8d87;
 }
 
 .path-input-row input {
@@ -379,14 +379,14 @@ select:focus,
 }
 
 .runtime-toggle:hover {
-  background: #1c1c1c;
+  background: #f7f7f5;
 }
 
 .runtime-toggle input {
   width: 14px;
   height: 14px;
   margin: 2px 0 0;
-  accent-color: #aaa;
+  accent-color: #666;
 }
 
 .runtime-toggle strong,
@@ -426,15 +426,15 @@ select:focus,
   padding: 9px 13px;
   border: 0;
   border-radius: 7px;
-  background: #e8e8e8;
-  color: #161616;
+  background: #242423;
+  color: #fff;
   cursor: pointer;
   font-size: 12px;
   font-weight: 650;
 }
 
 .primary-button:hover {
-  background: #fff;
+  background: #000;
 }
 
 .primary-button:disabled {
@@ -458,7 +458,7 @@ select:focus,
 }
 
 .task-prompt code {
-  color: #d0d0d0;
+  color: #3b3b38;
   font-family: var(--font-code);
 }
 
@@ -492,7 +492,7 @@ select:focus,
   bottom: 8px;
   left: 5px;
   width: 1px;
-  background: #343434;
+  background: #d5d5d0;
   content: "";
 }
 
@@ -528,7 +528,7 @@ select:focus,
 }
 
 .activity-meta strong {
-  color: #d1d1d1;
+  color: #3d3d39;
   font-size: 12px;
   font-weight: 600;
 }
@@ -578,7 +578,7 @@ select:focus,
 }
 
 .tab.active {
-  border-top-color: #d5d5d5;
+  border-top-color: #262624;
 }
 
 .summary-block h2 {
@@ -632,7 +632,7 @@ select:focus,
 
 .subsection-title {
   margin: 28px 0 12px;
-  color: #c9c9c9;
+  color: #4e4e49;
   font-size: 11px;
   font-weight: 650;
   letter-spacing: 0.04em;
@@ -726,7 +726,7 @@ select:focus,
 .learning-card p,
 .warning-card p {
   margin: 9px 0 0;
-  color: #c1c1c1;
+  color: #444440;
   font-size: 12px;
   line-height: 1.55;
 }
@@ -784,7 +784,7 @@ select:focus,
   min-width: 0;
   flex-direction: column;
   border-left: 1px solid var(--border);
-  background: #121212;
+  background: #fafaf8;
 }
 
 .inspector.closed {
@@ -861,7 +861,7 @@ select:focus,
   display: block;
   overflow: hidden;
   margin-top: 10px;
-  color: #d0d0d0;
+  color: #343431;
   font-family: var(--font-code);
   font-size: 10px;
   text-overflow: ellipsis;
@@ -885,7 +885,7 @@ select:focus,
 
 .code-number {
   padding-right: 13px;
-  color: #505050;
+  color: #aaa9a2;
   text-align: right;
   user-select: none;
 }
@@ -903,9 +903,9 @@ select:focus,
   padding: 11px 13px;
   border: 1px solid var(--border-strong);
   border-radius: 8px;
-  background: #222;
-  box-shadow: 0 12px 34px rgb(0 0 0 / 35%);
-  color: #d7d7d7;
+  background: #fff;
+  box-shadow: 0 12px 34px rgb(0 0 0 / 14%);
+  color: #383835;
   font-size: 12px;
 }
 
@@ -923,7 +923,7 @@ select:focus,
     right: 0;
     z-index: 30;
     width: min(390px, 92vw);
-    box-shadow: -20px 0 45px rgb(0 0 0 / 35%);
+    box-shadow: -20px 0 45px rgb(0 0 0 / 14%);
   }
 }
 

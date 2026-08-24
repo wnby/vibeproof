@@ -32,7 +32,8 @@ def test_web_workspace_and_assets_are_served() -> None:
     assert script.status_code == 200
     assert "/api/v1/repositories/takeover" in script.text
     assert styles.status_code == 200
-    assert "--activity: #8c8c8c" in styles.text
+    assert "color-scheme: light" in styles.text
+    assert "--activity: #898982" in styles.text
     assert favicon.status_code == 200
 
 
