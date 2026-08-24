@@ -27,8 +27,8 @@ def test_web_workspace_and_assets_are_served() -> None:
     favicon = client.get("/static/favicon.svg")
 
     assert page.status_code == 200
-    assert "Take over a Python repository" in page.text
-    assert "Agent activity" in page.text
+    assert "接管一个 Python 仓库" in page.text
+    assert "Agent 活动" in page.text
     assert script.status_code == 200
     assert "/api/v1/repositories/takeover" in script.text
     assert styles.status_code == 200

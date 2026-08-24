@@ -53,11 +53,11 @@ async function startTakeover(event) {
   elements.runView.classList.remove("hidden");
   elements.resultSection.classList.add("hidden");
   elements.repositoryTitle.textContent = leafName(relativePath);
-  elements.taskPrompt.innerHTML = `Take over <code>${escapeHtml(relativePath)}</code> and produce source-grounded architecture, learning, and runtime evidence.`;
+  elements.taskPrompt.innerHTML = `接管 <code>${escapeHtml(relativePath)}</code>，生成有源码依据的架构、学习路径和运行证据。`;
   elements.activityFeed.innerHTML = runningActivity();
-  elements.activitySummary.textContent = "Working";
+  elements.activitySummary.textContent = "处理中";
   elements.startButton.disabled = true;
-  setRunState("running", "Running");
+  setRunState("running", "运行中");
 
   const payload = {
     relativePath,
@@ -75,7 +75,7 @@ async function startTakeover(event) {
       body: JSON.stringify(payload),
     });
     const body = await parseResponse(response);
-    if (!response.ok) throw new Error(body.detail || `Request failed with HTTP ${response.status}`);
+    if (!response.ok) throw new Error(body.detail || `请求失败，HTTP ${response.status}`);
     state.report = body;
     renderReport();
     rememberRun(body);
@@ -90,9 +90,9 @@ function renderReport() {
   const report = state.report;
   elements.activityFeed.innerHTML = report.steps.map(renderActivity).join("");
   const failedSteps = report.steps.filter((step) => step.status === "FAILED").length;
-  elements.activitySummary.textContent = failedSteps ? `${failedSteps} stage${failedSteps === 1 ? "" : "s"} need attention` : "All stages complete";
+  elements.activitySummary.textContent = failedSteps ? `${failedSteps} 个阶段需要处理` : "全部阶段已完成";
   elements.resultSection.classList.remove("hidden");
-  setRunState(report.status.toLowerCase(), titleCase(report.status));
+  setRunState(report.status.toLowerCase(), statusLabel(report.status));
   selectTab("overview");
 }
 
@@ -114,8 +114,8 @@ function runningActivity() {
   return `
     <article class="activity-item running">
       <span class="activity-marker" aria-hidden="true"></span>
-      <div class="activity-meta"><strong>VibeProof</strong><span>in progress</span></div>
-      <p>Running the repository takeover pipeline. Completed stages will appear when the report is ready.</p>
+      <div class="activity-meta"><strong>VibeProof</strong><span>执行中</span></div>
+      <p>正在运行仓库接管流程。报告生成后，这里会展示 Coordinator 记录的真实阶段。</p>
     </article>`;
 }
 
@@ -147,51 +147,51 @@ function renderOverview() {
       <p>${escapeHtml(report.summary)}</p>
     </div>
     <div class="metric-grid">
-      ${metric(repository.scanned_files ?? 0, "Files scanned")}
-      ${metric(language, "Primary language")}
-      ${metric((architecture.claims || []).length, "Verified claims")}
-      ${metric((learning.units || []).length, "Learning units")}
+      ${metric(repository.scanned_files ?? 0, "扫描文件")}
+      ${metric(language, "主要语言")}
+      ${metric((architecture.claims || []).length, "已验证结论")}
+      ${metric((learning.units || []).length, "学习单元")}
     </div>
-    ${chipSection("Entrypoints", repository.entrypoints)}
-    ${chipSection("Test files", repository.test_files)}
-    ${chipSection("Frameworks", repository.frameworks)}
-    <h3 class="subsection-title">Runtime</h3>
+    ${chipSection("入口文件", repository.entrypoints)}
+    ${chipSection("测试文件", repository.test_files)}
+    ${chipSection("框架", repository.frameworks)}
+    <h3 class="subsection-title">运行验证</h3>
     <div class="runtime-card">
       <div class="runtime-topline">
         <span class="runtime-status ${(runtime.status || "unknown").toLowerCase()}">${escapeHtml(runtime.status || "NOT AVAILABLE")}</span>
-        <span class="claim-confidence">${runtime.executed ? "executed" : "plan only"}</span>
+        <span class="claim-confidence">${runtime.executed ? "已执行" : "仅生成计划"}</span>
       </div>
-      <p class="claim-source">${escapeHtml((runtime.plan?.command || []).join(" ") || "No runtime plan")}</p>
+      <p class="claim-source">${escapeHtml((runtime.plan?.command || []).join(" ") || "没有运行计划")}</p>
     </div>
-    ${warnings.length ? `<h3 class="subsection-title">Warnings</h3><div class="warning-list">${warnings.map((item) => `<div class="warning-card"><p>${escapeHtml(item)}</p></div>`).join("")}</div>` : ""}`;
+    ${warnings.length ? `<h3 class="subsection-title">警告</h3><div class="warning-list">${warnings.map((item) => `<div class="warning-card"><p>${escapeHtml(item)}</p></div>`).join("")}</div>` : ""}`;
 }
 
 function renderEvidence() {
   const architecture = state.report.architecture;
-  if (!architecture) return emptyResult("Architecture analysis did not produce a report.");
+  if (!architecture) return emptyResult("架构分析没有生成报告。");
   const accepted = architecture.claims || [];
   const rejected = architecture.rejected_claims || [];
   return `
     <div class="summary-block">
-      <h2>Architecture evidence</h2>
+      <h2>架构证据</h2>
       <p>${escapeHtml(architecture.summary)}</p>
     </div>
-    <h3 class="subsection-title">Verified claims · ${accepted.length}</h3>
-    <div class="claim-list">${accepted.length ? accepted.map((claim) => claimCard(claim, false)).join("") : emptyResult("No claims were verified.")}</div>
-    <h3 class="subsection-title">Rejected claims · ${rejected.length}</h3>
-    <div class="claim-list">${rejected.length ? rejected.map((claim) => claimCard(claim, true)).join("") : emptyResult("No rejected claims.")}</div>
-    ${(architecture.unresolved_questions || []).length ? `<h3 class="subsection-title">Unresolved questions</h3><div class="warning-list">${architecture.unresolved_questions.map((item) => `<div class="warning-card"><p>${escapeHtml(item)}</p></div>`).join("")}</div>` : ""}`;
+    <h3 class="subsection-title">已验证结论 · ${accepted.length}</h3>
+    <div class="claim-list">${accepted.length ? accepted.map((claim) => claimCard(claim, false)).join("") : emptyResult("暂无已验证结论。")}</div>
+    <h3 class="subsection-title">已拒绝结论 · ${rejected.length}</h3>
+    <div class="claim-list">${rejected.length ? rejected.map((claim) => claimCard(claim, true)).join("") : emptyResult("没有被拒绝的结论。")}</div>
+    ${(architecture.unresolved_questions || []).length ? `<h3 class="subsection-title">待解决问题</h3><div class="warning-list">${architecture.unresolved_questions.map((item) => `<div class="warning-card"><p>${escapeHtml(item)}</p></div>`).join("")}</div>` : ""}`;
 }
 
 function claimCard(claim, rejected) {
   const evidenceId = claim.evidence_ids?.[0] || "";
   const reference = findEvidence(evidenceId);
-  const location = reference ? `${reference.path}:${reference.start_line}-${reference.end_line}` : evidenceId || "No source citation";
+  const location = reference ? `${reference.path}:${reference.start_line}-${reference.end_line}` : evidenceId || "没有源码引用";
   return `
     <button class="claim-card ${rejected ? "rejected" : ""}" type="button" data-evidence-id="${escapeAttribute(evidenceId)}" data-claim="${escapeAttribute(claim.claim)}">
       <div class="claim-topline">
-        <span class="claim-status ${rejected ? "rejected" : "verified"}">${rejected ? "REJECTED" : "VERIFIED"}</span>
-        <span class="claim-confidence">${Math.round((claim.confidence || 0) * 100)}% confidence</span>
+        <span class="claim-status ${rejected ? "rejected" : "verified"}">${rejected ? "已拒绝" : "已验证"}</span>
+        <span class="claim-confidence">置信度 ${Math.round((claim.confidence || 0) * 100)}%</span>
       </div>
       <p>${escapeHtml(claim.claim)}</p>
       <span class="claim-source">${escapeHtml(location)}</span>
@@ -200,7 +200,7 @@ function claimCard(claim, rejected) {
 
 function renderLearning() {
   const plan = state.report.learning_plan;
-  if (!plan) return emptyResult("A learning plan requires a completed architecture analysis.");
+  if (!plan) return emptyResult("完成架构分析后才能生成学习计划。");
   const questionsByUnit = new Map();
   (plan.questions || []).forEach((question) => {
     const items = questionsByUnit.get(question.unit_sequence) || [];
@@ -208,41 +208,41 @@ function renderLearning() {
     questionsByUnit.set(question.unit_sequence, items);
   });
   return `
-    <div class="summary-block"><h2>Learning path</h2><p>${escapeHtml(plan.summary)}</p></div>
+    <div class="summary-block"><h2>学习路径</h2><p>${escapeHtml(plan.summary)}</p></div>
     <div class="learning-list">
       ${(plan.units || []).map((unit) => {
         const questions = questionsByUnit.get(unit.sequence) || [];
         return `<article class="learning-card">
-          <div class="learning-topline"><h3>${escapeHtml(unit.title)}</h3><span class="learning-sequence">UNIT ${unit.sequence}</span></div>
-          <p><span class="learning-label">Objective · </span>${escapeHtml(unit.objective)}</p>
-          <p><span class="learning-label">Exercise · </span>${escapeHtml(unit.exercise)}</p>
-          ${questions.map((question) => `<p><span class="learning-label">Question · </span>${escapeHtml(question.prompt)}</p>`).join("")}
+          <div class="learning-topline"><h3>${escapeHtml(unit.title)}</h3><span class="learning-sequence">单元 ${unit.sequence}</span></div>
+          <p><span class="learning-label">学习目标 · </span>${escapeHtml(unit.objective)}</p>
+          <p><span class="learning-label">练习 · </span>${escapeHtml(unit.exercise)}</p>
+          ${questions.map((question) => `<p><span class="learning-label">验收问题 · </span>${escapeHtml(question.prompt)}</p>`).join("")}
           <span class="learning-evidence">${escapeHtml((unit.evidence_ids || []).join(", "))}</span>
         </article>`;
-      }).join("") || emptyResult("No source-grounded learning units were produced.")}
+      }).join("") || emptyResult("没有生成基于源码证据的学习单元。")}
     </div>`;
 }
 
 function renderRuntime() {
   const runtime = state.report.runtime;
-  if (!runtime) return emptyResult("Runtime verification did not produce a report.");
+  if (!runtime) return emptyResult("运行验证没有生成报告。");
   const command = (runtime.plan?.command || []).join(" ");
   const evidence = runtime.evidence;
-  const output = evidence ? [evidence.stdout_excerpt, evidence.stderr_excerpt].filter(Boolean).join("\n") : "Command execution was not requested.";
+  const output = evidence ? [evidence.stdout_excerpt, evidence.stderr_excerpt].filter(Boolean).join("\n") : "未请求执行命令。";
   return `
-    <div class="summary-block"><h2>Runtime verification</h2><p>A fixed command catalog keeps runtime evidence reproducible and reviewable.</p></div>
+    <div class="summary-block"><h2>运行验证</h2><p>固定命令目录让运行证据保持可复现、可审查。</p></div>
     <div class="runtime-card">
       <div class="runtime-topline">
         <span class="runtime-status ${(runtime.status || "").toLowerCase()}">${escapeHtml(runtime.status)}</span>
-        <span class="claim-confidence">${evidence ? formatDuration(evidence.duration_ms) : "not executed"}</span>
+        <span class="claim-confidence">${evidence ? formatDuration(evidence.duration_ms) : "未执行"}</span>
       </div>
       <pre class="terminal">$ ${escapeHtml(command)}\n\n${escapeHtml(output || "No output captured.")}</pre>
     </div>
     <div class="metric-grid">
-      ${metric(evidence?.exit_code ?? "—", "Exit code")}
-      ${metric(runtime.repository_changed ? "Yes" : "No", "Repository changed")}
-      ${metric(evidence?.scrubbed_environment_variables ?? "—", "Secrets scrubbed")}
-      ${metric(runtime.plan?.check || "—", "Check catalog")}
+      ${metric(evidence?.exit_code ?? "—", "退出码")}
+      ${metric(runtime.repository_changed ? "是" : "否", "仓库发生变化")}
+      ${metric(evidence?.scrubbed_environment_variables ?? "—", "已清理敏感变量")}
+      ${metric(runtime.plan?.check || "—", "检查类型")}
     </div>`;
 }
 
@@ -256,15 +256,15 @@ async function openEvidence(evidenceId, claim) {
   const reference = findEvidence(evidenceId);
   elements.inspector.classList.remove("closed");
   if (!reference) {
-    elements.inspectorTitle.textContent = "Citation unavailable";
-    elements.inspectorBody.innerHTML = `<div class="inspector-empty"><p>This claim does not cite evidence from the current report.</p></div>`;
+    elements.inspectorTitle.textContent = "引用不可用";
+    elements.inspectorBody.innerHTML = `<div class="inspector-empty"><p>这条结论没有引用当前报告中的源码证据。</p></div>`;
     return;
   }
 
   elements.inspectorTitle.textContent = reference.symbol || reference.path;
   elements.inspectorBody.innerHTML = `
-    <div class="evidence-meta"><span class="eyebrow">LOADING SOURCE</span><p>${escapeHtml(claim)}</p><span class="evidence-path">${escapeHtml(reference.path)}:${reference.start_line}-${reference.end_line}</span></div>
-    <div class="inspector-empty"><p>Reading the verified source range…</p></div>`;
+    <div class="evidence-meta"><span class="eyebrow">正在加载源码</span><p>${escapeHtml(claim)}</p><span class="evidence-path">${escapeHtml(reference.path)}:${reference.start_line}-${reference.end_line}</span></div>
+    <div class="inspector-empty"><p>正在读取已验证的源码范围…</p></div>`;
   try {
     const response = await fetch("/api/v1/repositories/source", {
       method: "POST",
@@ -277,10 +277,10 @@ async function openEvidence(evidenceId, claim) {
       }),
     });
     const body = await parseResponse(response);
-    if (!response.ok) throw new Error(body.detail || "Could not read source evidence");
+    if (!response.ok) throw new Error(body.detail || "无法读取源码证据");
     elements.inspectorBody.innerHTML = `
       <div class="evidence-meta">
-        <span class="claim-status verified">VERIFIED SOURCE</span>
+        <span class="claim-status verified">已验证源码</span>
         <p>${escapeHtml(claim)}</p>
         <span class="evidence-path">${escapeHtml(body.sourcePath)}:${body.startLine}-${body.endLine}</span>
       </div>
@@ -304,11 +304,11 @@ function renderRequestFailure(error) {
   elements.activityFeed.innerHTML = `
     <article class="activity-item failed">
       <span class="activity-marker" aria-hidden="true"></span>
-      <div class="activity-meta"><strong>Request failed</strong><span>stopped</span></div>
+      <div class="activity-meta"><strong>请求失败</strong><span>已停止</span></div>
       <p class="activity-error">${escapeHtml(error.message)}</p>
     </article>`;
-  elements.activitySummary.textContent = "Needs attention";
-  setRunState("failed", "Failed");
+  elements.activitySummary.textContent = "需要处理";
+  setRunState("failed", "失败");
   showToast(error.message);
 }
 
@@ -318,11 +318,11 @@ function resetWorkspace() {
   elements.welcome.classList.remove("hidden");
   elements.runView.classList.add("hidden");
   elements.resultSection.classList.add("hidden");
-  elements.repositoryTitle.textContent = "New task";
+  elements.repositoryTitle.textContent = "新任务";
   elements.inspector.classList.remove("closed");
-  elements.inspectorTitle.textContent = "Evidence inspector";
-  elements.inspectorBody.innerHTML = `<div class="inspector-empty"><div class="file-glyph" aria-hidden="true">{ }</div><p>Select a verified claim to inspect its source location.</p></div>`;
-  setRunState("idle", "Idle");
+  elements.inspectorTitle.textContent = "证据检查器";
+  elements.inspectorBody.innerHTML = `<div class="inspector-empty"><div class="file-glyph" aria-hidden="true">{ }</div><p>选择一条已验证结论，查看对应的源码位置。</p></div>`;
+  setRunState("idle", "空闲");
 }
 
 function rememberRun(report) {
@@ -352,13 +352,13 @@ function loadRecentRuns() {
 
 function renderRecentRuns() {
   if (!state.recentRuns.length) {
-    elements.recentRuns.innerHTML = `<p class="sidebar-empty">Completed runs appear here.</p>`;
+    elements.recentRuns.innerHTML = `<p class="sidebar-empty">完成接管后会显示在这里。</p>`;
     return;
   }
   elements.recentRuns.innerHTML = state.recentRuns.map((run, index) => `
     <div class="recent-run ${index === 0 ? "active" : ""}">
       <strong>${escapeHtml(run.repository)}</strong>
-      <span>${escapeHtml(titleCase(run.status))} · ${formatDate(run.generatedAt)}</span>
+      <span>${escapeHtml(statusLabel(run.status))} · ${formatDate(run.generatedAt)}</span>
     </div>`).join("");
 }
 
@@ -396,15 +396,27 @@ async function parseResponse(response) {
 
 function stageLabel(stage) {
   const labels = {
-    SCAN: "Repository scanner",
-    INDEX: "Source indexer",
-    ANALYZE: "Architecture analyst",
-    LEARNING_PLAN: "Repository tutor",
-    RUNTIME_PLAN: "Runtime planner",
-    RUNTIME_EXECUTION: "Runtime verifier",
-    REPORT: "Takeover coordinator",
+    SCAN: "仓库扫描 · Scanner",
+    INDEX: "源码索引 · Indexer",
+    ANALYZE: "架构分析 · Analyst",
+    LEARNING_PLAN: "学习规划 · Tutor",
+    RUNTIME_PLAN: "运行计划 · Runtime",
+    RUNTIME_EXECUTION: "运行验证 · Runtime",
+    REPORT: "接管报告 · Coordinator",
   };
   return labels[stage] || titleCase(stage);
+}
+
+function statusLabel(status) {
+  const labels = {
+    COMPLETED: "已完成",
+    PARTIAL: "部分完成",
+    FAILED: "失败",
+    SNAPSHOT_CHANGED: "源码快照已变化",
+    PLANNED: "已规划",
+    PASSED: "已通过",
+  };
+  return labels[status] || titleCase(status);
 }
 
 function titleCase(value) {
@@ -423,7 +435,7 @@ function formatDuration(milliseconds) {
 
 function formatDate(value) {
   const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? "recently" : date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  return Number.isNaN(date.getTime()) ? "最近" : date.toLocaleDateString("zh-CN", { month: "short", day: "numeric" });
 }
 
 let toastTimer;
