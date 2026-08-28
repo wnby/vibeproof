@@ -76,8 +76,8 @@
 ## `tests/` 测试结构
 
 测试目录镜像生产包：`agents/`、`core/`、`interfaces/`、`llm/`、`repository/`、`reports/`、`runtime/`、
-`workflows/`。`test_architecture.py` 使用 AST 检查包依赖方向，`test_config.py` 验证集中配置，`support.py` 只保存
-跨模块共享的最小测试场景构造器。
+`workflows/`。`test_architecture.py` 使用 AST 检查包依赖方向，并保证所有公开类、函数和方法都有导航型说明；
+`test_config.py` 验证集中配置，`support.py` 只保存跨模块共享的最小测试场景构造器。
 
 ## 其他目录
 
