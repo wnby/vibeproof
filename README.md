@@ -32,6 +32,7 @@ Implemented:
 - citation integrity review against the current SQLite snapshot
 - auditable Agent traces and JSON/Markdown architecture reports
 - offline mock, OpenAI-compatible, and Ollama model providers
+- bounded retry for transient model transport failures and JSON response mode for OpenAI-compatible Agents
 - plan-first runtime verification with fixed `pytest` and `pytest --collect-only` checks
 - target-interpreter discovery, timeouts, bounded output, environment scrubbing, and before/after snapshots
 - JSON and Markdown runtime reports that preserve both passing and failing evidence

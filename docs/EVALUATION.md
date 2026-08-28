@@ -110,6 +110,8 @@ Remove-Item Env:VIBEPROOF_AI_API_KEY
 
 这个结果区分了两个不同问题：中转站线路存在间歇性传输失败；模型输出也没有稳定满足单一 JSON 对象契约。后续不能只增加网络重试，还需要评估服务端 Structured Output、Prompt 契约和严格校验之间的兼容方式。
 
+随后加入了最小可靠性层：OpenAI-compatible 请求携带 `response_format=json_object`，并由 `RetryingModelClient` 只对临时传输异常最多追加一次尝试。重测持续 127.1 秒后，中转站关闭连接且没有返回模型内容；Runtime pytest 仍通过。该结果表明有界重试按设计停止，但不能修复持续的外部线路故障，因此没有继续增加重试或中转站专用分支。
+
 ## 自定义用例
 
 `--case` 接受严格 JSON，主要字段如下：

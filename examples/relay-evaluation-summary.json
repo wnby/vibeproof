@@ -36,6 +36,8 @@
       "Analyst response reached the client but contained non-empty content after the JSON object and was rejected as INVALID_ACTION",
       "The next Analyst request failed with relay do_request_failed"
     ],
+    "reliability_layer_retry": "FAILED after 127.1 seconds; the relay closed the connection without a response after the bounded retry path",
+    "json_response_format": "request was accepted by the endpoint but no model content was returned",
     "model_calls": 2,
     "model_transport_failures": 1,
     "runtime_status": "PASSED",
