@@ -12,10 +12,13 @@ from vibeproof.model_client import (
     MockAnalystModelClient,
     MockAnswerReviewModelClient,
     MockTutorModelClient,
+    ModelClientError,
     ModelConfigurationError,
     ModelMessage,
     OllamaModelClient,
     OpenAICompatibleModelClient,
+    RetryingModelClient,
+    TransientModelError,
     create_model_client,
 )
 
@@ -115,8 +118,9 @@ def test_model_factory_uses_configured_network_timeout(monkeypatch) -> None:
 
     client = create_model_client("openai-compatible", base_url="https://models.example/v1")
 
-    assert isinstance(client, OpenAICompatibleModelClient)
-    assert client.timeout_seconds == 240
+    assert isinstance(client, RetryingModelClient)
+    assert isinstance(client.client, OpenAICompatibleModelClient)
+    assert client.client.timeout_seconds == 240
 
 
 def test_model_factory_rejects_invalid_network_timeout(monkeypatch) -> None:
@@ -148,6 +152,7 @@ def test_openai_compatible_client_uses_chat_completion_shape(monkeypatch) -> Non
     assert captured["url"] == "https://models.example/v1/chat/completions"
     assert captured["payload"]["messages"] == [{"role": "user", "content": "hello"}]
     assert captured["payload"]["stream"] is False
+    assert captured["payload"]["response_format"] == {"type": "json_object"}
     assert captured["headers"]["Authorization"] == "Bearer secret-test-key"
     assert captured["headers"]["User-Agent"].startswith("VibeProof/")
 
@@ -190,6 +195,67 @@ def test_openai_sse_parser_joins_delta_content(monkeypatch) -> None:
     client = OpenAICompatibleModelClient(model="test-model", base_url="https://models.example/v1")
 
     assert client.complete([ModelMessage(role="user", content="hello")]) == '{"ok":true}'
+
+
+def test_retrying_client_retries_one_transient_failure() -> None:
+    class FlakyClient:
+        provider = "test"
+        model = "flaky"
+
+        def __init__(self):
+            self.calls = 0
+
+        def complete(self, messages):
+            self.calls += 1
+            if self.calls == 1:
+                raise TransientModelError("temporary failure")
+            return '{"ok":true}'
+
+    base = FlakyClient()
+    client = RetryingModelClient(base, retry_delay_seconds=0)
+
+    assert client.complete([ModelMessage(role="user", content="hello")]) == '{"ok":true}'
+    assert base.calls == 2
+
+
+def test_retrying_client_does_not_retry_permanent_errors() -> None:
+    class InvalidResponseClient:
+        provider = "test"
+        model = "invalid"
+
+        def __init__(self):
+            self.calls = 0
+
+        def complete(self, messages):
+            self.calls += 1
+            raise ModelClientError("invalid response")
+
+    base = InvalidResponseClient()
+    client = RetryingModelClient(base, retry_delay_seconds=0)
+
+    with pytest.raises(ModelClientError, match="invalid response"):
+        client.complete([ModelMessage(role="user", content="hello")])
+    assert base.calls == 1
+
+
+def test_retrying_client_stops_after_two_transient_failures() -> None:
+    class OfflineClient:
+        provider = "test"
+        model = "offline"
+
+        def __init__(self):
+            self.calls = 0
+
+        def complete(self, messages):
+            self.calls += 1
+            raise TransientModelError("still offline")
+
+    base = OfflineClient()
+    client = RetryingModelClient(base, retry_delay_seconds=0)
+
+    with pytest.raises(TransientModelError, match="still offline"):
+        client.complete([ModelMessage(role="user", content="hello")])
+    assert base.calls == 2
 
 
 def test_ollama_client_requests_non_streaming_json(monkeypatch) -> None:

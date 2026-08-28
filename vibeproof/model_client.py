@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import os
 from dataclasses import dataclass
+from time import sleep
 from typing import Protocol
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
@@ -18,6 +19,10 @@ VIBEPROOF_USER_AGENT = "VibeProof/0.1 (+https://github.com/wnby/vibeproof)"
 
 class ModelClientError(RuntimeError):
     pass
+
+
+class TransientModelError(ModelClientError):
+    """A temporary transport failure that may succeed on one bounded retry."""
 
 
 class ModelConfigurationError(ValueError):
@@ -35,6 +40,32 @@ class ModelClient(Protocol):
     model: str
 
     def complete(self, messages: list[ModelMessage]) -> str: ...
+
+
+class RetryingModelClient:
+    """Retry one transient transport failure without coupling retry logic to Agents."""
+
+    def __init__(self, client: ModelClient, max_attempts: int = 2, retry_delay_seconds: float = 0.5):
+        if max_attempts < 1:
+            raise ValueError("max_attempts must be at least one")
+        if retry_delay_seconds < 0:
+            raise ValueError("retry_delay_seconds cannot be negative")
+        self.client = client
+        self.provider = client.provider
+        self.model = client.model
+        self.max_attempts = max_attempts
+        self.retry_delay_seconds = retry_delay_seconds
+
+    def complete(self, messages: list[ModelMessage]) -> str:
+        for attempt in range(1, self.max_attempts + 1):
+            try:
+                return self.client.complete(messages)
+            except TransientModelError:
+                if attempt == self.max_attempts:
+                    raise
+                if self.retry_delay_seconds:
+                    sleep(self.retry_delay_seconds)
+        raise AssertionError("retry loop ended without returning or raising")
 
 
 class MockAnalystModelClient:
@@ -204,6 +235,7 @@ class OpenAICompatibleModelClient:
             "messages": [{"role": message.role, "content": message.content} for message in messages],
             "temperature": 0,
             "stream": self.stream,
+            "response_format": {"type": "json_object"},
         }
         headers = {
             "Content-Type": "application/json",
@@ -297,11 +329,13 @@ def create_model_client(
     if normalized == "openai-compatible":
         configured_url = os.getenv("VIBEPROOF_AI_BASE_URL", "").strip()
         resolved_url = (base_url or configured_url or "https://api.openai.com/v1").strip()
-        return OpenAICompatibleModelClient(
-            model=resolved_model,
-            base_url=resolved_url,
-            api_key=os.getenv("VIBEPROOF_AI_API_KEY") or None,
-            timeout_seconds=resolved_timeout or 180.0,
+        return RetryingModelClient(
+            OpenAICompatibleModelClient(
+                model=resolved_model,
+                base_url=resolved_url,
+                api_key=os.getenv("VIBEPROOF_AI_API_KEY") or None,
+                timeout_seconds=resolved_timeout or 180.0,
+            )
         )
     if normalized == "ollama":
         configured_url = os.getenv("VIBEPROOF_AI_BASE_URL", "").strip()
@@ -312,6 +346,12 @@ def create_model_client(
             timeout_seconds=resolved_timeout or 120.0,
         )
     raise ModelConfigurationError("provider must be one of: mock, openai-compatible, ollama")
+
+
+def _http_error(exc: HTTPError) -> ModelClientError:
+    detail = exc.read(1_000).decode("utf-8", errors="replace")
+    error_type = TransientModelError if exc.code == 429 or 500 <= exc.code < 600 else ModelClientError
+    return error_type(f"model endpoint returned HTTP {exc.code}: {detail}")
 
 
 def _post_json(
@@ -330,10 +370,9 @@ def _post_json(
         with urlopen(request, timeout=timeout_seconds) as response:  # noqa: S310 - URL is explicit operator config
             data = response.read(2_000_000)
     except HTTPError as exc:
-        detail = exc.read(1_000).decode("utf-8", errors="replace")
-        raise ModelClientError(f"model endpoint returned HTTP {exc.code}: {detail}") from exc
+        raise _http_error(exc) from exc
     except (TimeoutError, URLError, OSError) as exc:
-        raise ModelClientError(f"model endpoint request failed: {exc}") from exc
+        raise TransientModelError(f"model endpoint request failed: {exc}") from exc
     try:
         decoded = json.loads(data.decode("utf-8"))
     except (UnicodeDecodeError, json.JSONDecodeError) as exc:
@@ -377,10 +416,9 @@ def _post_openai_sse(
                 if isinstance(content, str):
                     parts.append(content)
     except HTTPError as exc:
-        detail = exc.read(1_000).decode("utf-8", errors="replace")
-        raise ModelClientError(f"model endpoint returned HTTP {exc.code}: {detail}") from exc
+        raise _http_error(exc) from exc
     except (TimeoutError, URLError, OSError) as exc:
-        raise ModelClientError(f"model endpoint request failed: {exc}") from exc
+        raise TransientModelError(f"model endpoint request failed: {exc}") from exc
     content = "".join(parts)
     if not content.strip():
         raise ModelClientError("model stream contained no message content")
