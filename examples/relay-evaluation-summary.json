@@ -3,7 +3,8 @@
   "credentials_recorded": false,
   "tested_models": [
     "claude-sonnet-4-6",
-    "claude-haiku-4-5-20251001"
+    "claude-haiku-4-5-20251001",
+    "gpt-5.6-terra"
   ],
   "smoke_test": {
     "status": "PASSED",
@@ -25,6 +26,27 @@
     "model timeout must be separate from runtime-test timeout",
     "OpenAI-compatible responses can be consumed as SSE to avoid idle buffering after first byte"
   ],
-  "remaining_external_issue": "The relay may close complex Claude requests before the first streamed event.",
+  "gpt_5_6_terra_test": {
+    "tested_at": "2026-08-28",
+    "streaming_smoke_test": "PASSED; exact OK response in 9.2 seconds",
+    "non_streaming_smoke_test": "FAILED; relay returned do_request_failed",
+    "full_evaluation": "FAILED",
+    "first_full_run": "Analyst first request failed with relay do_request_failed; runtime pytest passed",
+    "retry_trace": [
+      "Analyst response reached the client but contained non-empty content after the JSON object and was rejected as INVALID_ACTION",
+      "The next Analyst request failed with relay do_request_failed"
+    ],
+    "model_calls": 2,
+    "model_transport_failures": 1,
+    "runtime_status": "PASSED",
+    "accepted_claims": 0,
+    "learning_plan": "MISSING",
+    "credentials_recorded": false
+  },
+  "remaining_external_issues": [
+    "The relay may close complex Claude requests before the first streamed event.",
+    "The gpt-5.6-terra route intermittently returns do_request_failed.",
+    "gpt-5.6-terra did not consistently obey the exact single-JSON-object action contract."
+  ],
   "end_to_end_evaluation": "NOT_PASSED"
 }

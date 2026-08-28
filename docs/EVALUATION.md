@@ -98,6 +98,18 @@ Remove-Item Env:VIBEPROOF_AI_API_KEY
 因此本次真实 Eval 为部分成功而非端到端通过。再次测试前应先向中转站确认长推理请求、首字节超时和
 流式转发策略，或选择能够在该网关首字节限制内稳定响应的模型线路。
 
+### gpt-5.6-terra 实测记录
+
+2026-08-28 使用同一 OpenAI-compatible Chat Completions 端点测试 `gpt-5.6-terra`，未记录 API Key：
+
+- 非流式极短请求返回中转站 `do_request_failed`。
+- 使用 VibeProof SSE 客户端的极短请求成功，并在 9.2 秒返回精确的 `OK`。
+- 第一次完整 `healthy_service` Eval 在 Analyst 第一次请求时遇到 `do_request_failed`；本地 Runtime pytest 通过。
+- 最后一次完整重试共调用 Analyst 两次：第一次传输成功，但模型在 JSON 对象后附加了非空内容，被严格结构校验记为 `INVALID_ACTION`；第二次返回中转站 `do_request_failed`。
+- 架构报告最终为 `MODEL_ERROR`，没有可接受 Claim，Tutor 未运行，Takeover 为 `PARTIAL`，因此端到端 Eval 未通过。
+
+这个结果区分了两个不同问题：中转站线路存在间歇性传输失败；模型输出也没有稳定满足单一 JSON 对象契约。后续不能只增加网络重试，还需要评估服务端 Structured Output、Prompt 契约和严格校验之间的兼容方式。
+
 ## 自定义用例
 
 `--case` 接受严格 JSON，主要字段如下：
