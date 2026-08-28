@@ -14,10 +14,11 @@ from vibeproof.core.models import AnswerSubmission, QuizSubmission, TakeoverRepo
 
 
 class QuizFileError(ValueError):
-    pass
+    """接管报告或答题文件无法进入学习评审流程。"""
 
 
 def load_takeover_report(path: str | Path) -> TakeoverReport:
+    """读取并严格校验一份 JSON 接管报告。"""
     source = Path(path).expanduser().resolve()
     try:
         raw = source.read_text(encoding="utf-8")
@@ -30,6 +31,7 @@ def load_takeover_report(path: str | Path) -> TakeoverReport:
 
 
 def load_quiz_submission(path: str | Path) -> QuizSubmission:
+    """读取用户填写的答题 JSON，并拒绝未知字段和非法结构。"""
     source = Path(path).expanduser().resolve()
     try:
         raw = source.read_text(encoding="utf-8")
@@ -42,6 +44,7 @@ def load_quiz_submission(path: str | Path) -> QuizSubmission:
 
 
 def create_quiz_submission(report: TakeoverReport) -> QuizSubmission:
+    """从接管报告生成空白答题模板，同时绑定报告、计划和快照身份。"""
     plan = report.learning_plan
     if plan is None or not plan.questions:
         raise QuizFileError("takeover report does not contain a source-grounded quiz")
@@ -71,6 +74,7 @@ def create_quiz_submission(report: TakeoverReport) -> QuizSubmission:
 
 
 def write_json(path: str | Path, value: QuizSubmission) -> Path:
+    """以稳定格式写出答题模板，并返回最终绝对路径。"""
     destination = Path(path).expanduser().resolve()
     destination.parent.mkdir(parents=True, exist_ok=True)
     destination.write_text(value.model_dump_json(indent=2) + "\n", encoding="utf-8")

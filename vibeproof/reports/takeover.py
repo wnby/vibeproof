@@ -10,6 +10,7 @@ from vibeproof.core.models import EvidenceReference, TakeoverReport
 
 
 def render_takeover_report(report: TakeoverReport) -> str:
+    """把六阶段产物和失败信息汇总成一份可阅读的接管报告。"""
     lines = [
         f"# Repository takeover report: {report.repository_name}",
         "",

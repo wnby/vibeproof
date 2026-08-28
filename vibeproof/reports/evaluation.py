@@ -10,6 +10,7 @@ from vibeproof.core.models import EvaluationReport
 
 
 def render_evaluation_report(report: EvaluationReport) -> str:
+    """把 Eval 指标、模型调用统计和接管摘要渲染为 Markdown。"""
     architecture = report.takeover.architecture
     learning = report.takeover.learning_plan
     lines = [

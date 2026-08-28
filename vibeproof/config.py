@@ -42,6 +42,7 @@ class Settings:
 
     @classmethod
     def from_env(cls) -> Settings:
+        """读取当前进程环境，返回一次运行使用的配置快照。"""
         workspace = os.getenv("VIBEPROOF_WORKSPACE_ROOT", "").strip()
         timeout = _optional_positive_float(
             os.getenv("VIBEPROOF_AI_TIMEOUT_SECONDS", "").strip(),

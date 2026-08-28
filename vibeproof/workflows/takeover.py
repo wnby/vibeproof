@@ -41,6 +41,8 @@ EXPECTED_STAGE_ERRORS = (IndexNotFoundError, ModelClientError, OSError, sqlite3.
 
 @dataclass(frozen=True)
 class TakeoverPolicy:
+    """汇总扫描、索引、Agent、Tutor 和运行验证各阶段策略。"""
+
     scan_policy: ScanPolicy = ScanPolicy()
     index_policy: IndexPolicy = IndexPolicy()
     analyst_policy: AnalystPolicy = AnalystPolicy()
@@ -52,7 +54,7 @@ class TakeoverPolicy:
 
 
 class TakeoverCoordinator:
-    """Compose existing evidence services into one repository takeover workflow."""
+    """把已有能力组合为一次完整接管；自身不进行模型推理。"""
 
     def __init__(
         self,
@@ -74,6 +76,7 @@ class TakeoverCoordinator:
         self.verifier = RuntimeVerifier(self.policy.runtime_policy)
 
     def run(self, root: str | Path) -> TakeoverReport:
+        """执行黄金路径并保留已完成产物；后期阶段失败时返回 ``PARTIAL``。"""
         repository_name = Path(root).expanduser().name or str(root)
         steps: list[TakeoverStep] = []
         warnings: list[str] = []
@@ -144,6 +147,7 @@ class TakeoverCoordinator:
         )
 
     def _scan(self, root: str | Path, steps: list[TakeoverStep]) -> tuple[RepositoryManifest | None, str | None]:
+        """建立后续所有证据共同使用的仓库快照。"""
         started = monotonic()
         try:
             manifest = self.scanner.scan(root)
@@ -167,6 +171,7 @@ class TakeoverCoordinator:
         manifest: RepositoryManifest,
         steps: list[TakeoverStep],
     ) -> tuple[SourceIndexSummary | None, str | None]:
+        """从快照中的 Python 文件构建并持久化证据索引。"""
         started = monotonic()
         try:
             indexed = self.indexer.build(root, manifest)
@@ -190,6 +195,7 @@ class TakeoverCoordinator:
         manifest: RepositoryManifest,
         steps: list[TakeoverStep],
     ) -> tuple[ArchitectureReport | None, str | None]:
+        """运行 Analyst；模型失败只降低本次接管状态，不丢失前序产物。"""
         started = monotonic()
         try:
             report = self.analyst.run(manifest)
@@ -220,6 +226,7 @@ class TakeoverCoordinator:
         architecture: ArchitectureReport | None,
         steps: list[TakeoverStep],
     ) -> LearningPlan | None:
+        """基于已审查架构证据生成学习计划；没有架构报告时明确跳过。"""
         started = monotonic()
         if architecture is None or architecture.run_status != AgentRunStatus.COMPLETED:
             error = "Learning plan requires a completed architecture analysis."
@@ -255,6 +262,7 @@ class TakeoverCoordinator:
         root: str | Path,
         steps: list[TakeoverStep],
     ) -> tuple[RuntimeVerificationReport | None, str | None]:
+        """生成或执行固定测试计划，并把命令结果作为独立证据保存。"""
         started = monotonic()
         stage = TakeoverStage.RUNTIME_EXECUTION if self.policy.execute_runtime else TakeoverStage.RUNTIME_PLAN
         try:

@@ -19,6 +19,8 @@ from vibeproof.core.models.repository import EvidenceReference
 
 
 class ClaimDraft(StrictModel):
+    """模型提出但尚未经过引用完整性审查的架构结论。"""
+
     claim: str = Field(min_length=1, max_length=1_000)
     claim_type: ClaimType = ClaimType.OTHER
     evidence_ids: list[str] = Field(default_factory=list, max_length=8)
@@ -26,11 +28,15 @@ class ClaimDraft(StrictModel):
 
 
 class AnalysisClaim(ClaimDraft):
+    """经过审查并带最终状态或拒绝原因的架构结论。"""
+
     status: ClaimStatus
     rejection_reason: str | None = None
 
 
 class AgentAction(StrictModel):
+    """Analyst 每一步输出的严格动作协议。"""
+
     action: AgentActionType
     query: str | None = Field(default=None, max_length=200)
     summary: str | None = Field(default=None, max_length=4_000)
@@ -39,6 +45,7 @@ class AgentAction(StrictModel):
 
     @model_validator(mode="after")
     def validate_action_payload(self) -> AgentAction:
+        """保证检索动作只带查询，最终动作只带报告内容。"""
         if self.action == AgentActionType.SEARCH_SOURCE:
             if not self.query or not self.query.strip():
                 raise ValueError("SEARCH_SOURCE requires a non-empty query")
@@ -53,6 +60,8 @@ class AgentAction(StrictModel):
 
 
 class AgentTraceStep(StrictModel):
+    """记录一次 Agent 动作、检索结果或解析错误，便于复盘。"""
+
     step: int = Field(ge=1)
     action: str
     query: str | None = None
@@ -62,6 +71,8 @@ class AgentTraceStep(StrictModel):
 
 
 class ArchitectureReport(StrictModel):
+    """Analyst 运行状态、结论、引用和完整轨迹的最终产物。"""
+
     report_id: str = Field(default_factory=lambda: f"architecture:{uuid4().hex}")
     repository_name: str
     snapshot_id: str

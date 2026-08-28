@@ -34,6 +34,8 @@ AUTH_ENV_NAMES = frozenset({"AUTH", "AUTHORIZATION", "AUTHENTICATION"})
 
 @dataclass(frozen=True)
 class RuntimePolicy:
+    """限制目标测试的执行时间、输出长度和前后快照扫描范围。"""
+
     timeout_seconds: float = 120
     output_limit_chars: int = 20_000
     scan_policy: ScanPolicy = ScanPolicy()
@@ -53,7 +55,7 @@ class _Interpreter:
 
 
 class RuntimeVerifier:
-    """Plan and run a small catalog of Python checks with auditable evidence."""
+    """规划并运行少量固定 Python 检查，把结果记录成可审计证据。"""
 
     def __init__(self, policy: RuntimePolicy | None = None):
         self.policy = policy or RuntimePolicy()
@@ -67,6 +69,7 @@ class RuntimeVerifier:
         execute: bool = False,
         python_executable: str | Path | None = None,
     ) -> RuntimeVerificationReport:
+        """默认只返回计划；``execute=True`` 时执行命令并比较运行前后仓库快照。"""
         repository_root = self._resolve_root(root)
         manifest = self.scanner.scan(repository_root)
         interpreter = self._resolve_interpreter(repository_root, python_executable)

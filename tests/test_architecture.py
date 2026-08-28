@@ -36,6 +36,29 @@ def test_package_dependencies_follow_architecture_layers() -> None:
     assert not violations, "invalid package dependencies:\n" + "\n".join(sorted(set(violations)))
 
 
+def test_public_symbols_have_navigation_docstrings() -> None:
+    """公开入口必须说明职责，避免目录整齐但源码仍然无法接管。"""
+    missing: list[str] = []
+    for source in PACKAGE_ROOT.rglob("*.py"):
+        if "__pycache__" in source.parts:
+            continue
+        relative = source.relative_to(PACKAGE_ROOT)
+        tree = ast.parse(source.read_text(encoding="utf-8"), filename=str(relative))
+        for node in tree.body:
+            if not isinstance(node, (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            if not node.name.startswith("_") and ast.get_docstring(node) is None:
+                missing.append(f"{relative.as_posix()}:{node.lineno} {node.name}")
+            if isinstance(node, ast.ClassDef):
+                for method in node.body:
+                    if not isinstance(method, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                        continue
+                    if not method.name.startswith("_") and ast.get_docstring(method) is None:
+                        missing.append(f"{relative.as_posix()}:{method.lineno} {node.name}.{method.name}")
+
+    assert not missing, "public symbols without docstrings:\n" + "\n".join(sorted(missing))
+
+
 def _vibeproof_module(node: ast.AST) -> str | None:
     if isinstance(node, ast.ImportFrom):
         return node.module

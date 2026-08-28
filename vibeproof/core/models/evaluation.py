@@ -18,6 +18,8 @@ from vibeproof.core.models.takeover import TakeoverReport
 
 
 class EvaluationExpectations(StrictModel):
+    """一个 Eval 场景对状态、数量、引用和运行结果的显式门槛。"""
+
     expected_takeover_status: TakeoverStatus = TakeoverStatus.COMPLETED
     expected_runtime_status: RuntimeStatus = RuntimeStatus.PLANNED
     minimum_claims: int = Field(default=1, ge=0, le=100)
@@ -33,6 +35,8 @@ class EvaluationExpectations(StrictModel):
 
 
 class EvaluationCase(StrictModel):
+    """可复现的 Eval 场景标识、说明和期望集合。"""
+
     schema_version: str = "1.0"
     case_id: str = Field(min_length=1, max_length=100)
     name: str = Field(min_length=1, max_length=200)
@@ -41,6 +45,8 @@ class EvaluationCase(StrictModel):
 
 
 class EvaluationMetric(StrictModel):
+    """一个实际值与期望值的确定性比较结果。"""
+
     code: str = Field(min_length=1, max_length=100)
     label: str = Field(min_length=1, max_length=200)
     status: EvaluationMetricStatus
@@ -50,6 +56,8 @@ class EvaluationMetric(StrictModel):
 
 
 class ModelCallSummary(StrictModel):
+    """某个 Agent 任务的模型调用次数、失败数和耗时。"""
+
     task: str = Field(min_length=1, max_length=100)
     provider: str = Field(min_length=1, max_length=100)
     model: str = Field(min_length=1, max_length=200)
@@ -59,6 +67,8 @@ class ModelCallSummary(StrictModel):
 
 
 class EvaluationReport(StrictModel):
+    """Eval 指标、模型观测和原始 Takeover 报告的组合产物。"""
+
     evaluation_id: str = Field(default_factory=lambda: f"evaluation:{uuid4().hex}")
     case_id: str
     case_name: str
@@ -79,6 +89,7 @@ class EvaluationReport(StrictModel):
 
     @model_validator(mode="after")
     def validate_metric_summary(self) -> EvaluationReport:
+        """确保汇总计数和最终状态与逐项指标完全一致。"""
         counts = {
             status: sum(item.status == status for item in self.metrics)
             for status in EvaluationMetricStatus

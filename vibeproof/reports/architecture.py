@@ -10,6 +10,7 @@ from vibeproof.core.models import ArchitectureReport, EvidenceReference
 
 
 def render_architecture_report(report: ArchitectureReport) -> str:
+    """把类型化架构结论、引用和 Agent 轨迹渲染为 Markdown。"""
     references = {item.chunk_id: item for item in report.evidence}
     lines = [
         f"# Architecture report: {report.repository_name}",

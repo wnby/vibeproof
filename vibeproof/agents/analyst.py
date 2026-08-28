@@ -48,6 +48,8 @@ its semantics; deterministic review will assign final statuses."""
 
 @dataclass(frozen=True)
 class AnalystPolicy:
+    """限制 Analyst 的循环步数、检索次数、证据量和无效动作容忍度。"""
+
     max_steps: int = 8
     search_limit: int = 3
     max_queries: int = 5
@@ -76,6 +78,8 @@ class AnalystPolicy:
 
 @dataclass(frozen=True)
 class ReviewResult:
+    """引用审查后被接受、被拒绝的结论及最终使用的引用。"""
+
     accepted: tuple[AnalysisClaim, ...]
     rejected: tuple[AnalysisClaim, ...]
     evidence: tuple[EvidenceReference, ...]
@@ -93,6 +97,7 @@ class CitationReviewer:
         observed: dict[str, EvidenceHit],
         snapshot_id: str,
     ) -> ReviewResult:
+        """只接受本轮见过、当前快照仍存在且元数据一致的引用。"""
         requested_ids = list(dict.fromkeys(chunk_id for draft in drafts for chunk_id in draft.evidence_ids))
         persisted = self.store.get_references(snapshot_id, requested_ids)
         accepted: list[AnalysisClaim] = []
@@ -182,6 +187,8 @@ class CitationReviewer:
 
 
 class RepositoryAnalystAgent:
+    """让模型在受控检索循环中理解仓库，并生成可追溯的架构报告。"""
+
     def __init__(
         self,
         store: EvidenceStore,
@@ -194,6 +201,7 @@ class RepositoryAnalystAgent:
         self.reviewer = CitationReviewer(store)
 
     def run(self, manifest: RepositoryManifest) -> ArchitectureReport:
+        """驱动 SEARCH_SOURCE/FINAL_ANSWER 循环；文件读取权始终掌握在 EvidenceStore。"""
         if not self.store.has_snapshot(manifest.snapshot_id):
             raise IndexNotFoundError("this repository snapshot is not indexed; run `vibeproof index` first")
 

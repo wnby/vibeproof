@@ -10,10 +10,11 @@ import json
 
 
 class StructuredOutputError(ValueError):
-    pass
+    """模型文本无法唯一解析为一个 JSON 对象。"""
 
 
 def normalize_json_object(raw: str) -> str:
+    """去掉有限的 Markdown 包装，但拒绝 JSON 前后夹带额外解释。"""
     text = raw.strip()
     if not text:
         raise StructuredOutputError("model output was empty")

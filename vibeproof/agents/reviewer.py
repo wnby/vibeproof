@@ -39,6 +39,8 @@ data flow and source grounding; do not reward confident wording unsupported by t
 
 @dataclass(frozen=True)
 class AnswerReviewPolicy:
+    """定义及格分、答案长度和单段源码摘录上限。"""
+
     passing_score: int = 70
     max_answer_characters: int = 8_000
     max_excerpt_characters: int = 1_000
@@ -53,6 +55,8 @@ class AnswerReviewPolicy:
 
 
 class AnswerReviewAgent:
+    """在题目绑定的有限证据内评审答案，并汇总学习进度。"""
+
     def __init__(
         self,
         store: EvidenceStore,
@@ -64,6 +68,7 @@ class AnswerReviewAgent:
         self.policy = policy or AnswerReviewPolicy()
 
     def run(self, report: TakeoverReport, submission: QuizSubmission) -> AnswerReviewReport:
+        """校验提交身份和证据后逐题评审；Mock 模式只检查结构，不给语义分。"""
         plan = report.learning_plan
         if plan is None or not plan.questions or not report.snapshot_id:
             raise ValueError("takeover report does not contain a reviewable source-grounded quiz")

@@ -23,10 +23,12 @@ from vibeproof.repository.index import IndexedSource, query_terms
 
 
 class IndexNotFoundError(LookupError):
-    pass
+    """请求的源码快照尚未写入本地证据库。"""
 
 
 class EvidenceStore:
+    """SQLite 证据仓库；Agent 只能通过这里检索和重新加载源码引用。"""
+
     def __init__(self, database_path: str | Path):
         self.database_path = Path(database_path).expanduser().resolve()
 
@@ -36,6 +38,7 @@ class EvidenceStore:
         snapshot_id: str,
         indexed: IndexedSource,
     ) -> SourceIndexSummary:
+        """用一份完整索引原子替换同快照数据，并返回持久化摘要。"""
         self.database_path.parent.mkdir(parents=True, exist_ok=True)
         with self._connect() as connection:
             _create_schema(connection)
@@ -95,6 +98,7 @@ class EvidenceStore:
         )
 
     def has_snapshot(self, snapshot_id: str) -> bool:
+        """判断某个仓库快照是否已经建立证据索引。"""
         if not self.database_path.is_file():
             return False
         with self._connect() as connection:
@@ -106,6 +110,7 @@ class EvidenceStore:
         return row is not None
 
     def search(self, snapshot_id: str, query: str, limit: int = 5) -> list[EvidenceHit]:
+        """在指定快照内确定性排序源码块，返回受数量限制的证据。"""
         if limit < 1 or limit > 100:
             raise ValueError("limit must be between 1 and 100")
         normalized_query = query.strip().lower()
@@ -159,6 +164,7 @@ class EvidenceStore:
         ]
 
     def get_references(self, snapshot_id: str, chunk_ids: list[str]) -> dict[str, EvidenceReference]:
+        """重新从数据库加载引用元数据，用于检查模型是否伪造或篡改引用。"""
         unique_ids = list(dict.fromkeys(chunk_ids))
         if not unique_ids:
             return {}
@@ -199,6 +205,7 @@ class EvidenceStore:
         *,
         max_excerpt_characters: int = 500,
     ) -> list[EvidenceHit]:
+        """按给定 ID 和顺序加载带受限源码摘录的证据，供 Agent 构造上下文。"""
         unique_ids = list(dict.fromkeys(chunk_ids))
         if not unique_ids:
             return []

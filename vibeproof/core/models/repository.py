@@ -10,6 +10,8 @@ from vibeproof.core.models.common import FileCategory, StrictModel, SymbolKind
 
 
 class GitSnapshot(StrictModel):
+    """扫描时读取到的 Git 分支、提交和工作区状态。"""
+
     available: bool = False
     branch: str | None = None
     commit: str | None = None
@@ -18,6 +20,8 @@ class GitSnapshot(StrictModel):
 
 
 class RepositoryFile(StrictModel):
+    """仓库内一个可读取文件的路径、类别和内容哈希。"""
+
     path: str
     category: FileCategory
     language: str | None = None
@@ -26,6 +30,8 @@ class RepositoryFile(StrictModel):
 
 
 class ScanStatistics(StrictModel):
+    """扫描读取、忽略和跳过文件的计数。"""
+
     visited_files: int = Field(default=0, ge=0)
     indexed_files: int = Field(default=0, ge=0)
     ignored_directories: int = Field(default=0, ge=0)
@@ -37,6 +43,8 @@ class ScanStatistics(StrictModel):
 
 
 class RepositoryManifest(StrictModel):
+    """仓库扫描产物；它是后续源码证据共同绑定的不可变快照。"""
+
     schema_version: str = "1.0"
     repository_name: str
     snapshot_id: str
@@ -55,6 +63,8 @@ class RepositoryManifest(StrictModel):
 
 
 class SourceSymbol(StrictModel):
+    """从 AST 中提取的类、函数或方法及其源码范围。"""
+
     symbol_id: str
     snapshot_id: str
     path: str
@@ -70,12 +80,15 @@ class SourceSymbol(StrictModel):
 
     @model_validator(mode="after")
     def validate_line_range(self) -> SourceSymbol:
+        """确保符号结束行不早于开始行。"""
         if self.end_line < self.start_line:
             raise ValueError("end_line cannot be before start_line")
         return self
 
 
 class ImportEdge(StrictModel):
+    """一个 Python 文件中的静态导入关系。"""
+
     snapshot_id: str
     source_path: str
     module: str
@@ -86,6 +99,8 @@ class ImportEdge(StrictModel):
 
 
 class SourceChunk(StrictModel):
+    """可被检索和引用的带行号源码块。"""
+
     chunk_id: str
     snapshot_id: str
     path: str
@@ -98,12 +113,15 @@ class SourceChunk(StrictModel):
 
     @model_validator(mode="after")
     def validate_line_range(self) -> SourceChunk:
+        """确保源码块行号范围有效。"""
         if self.end_line < self.start_line:
             raise ValueError("end_line cannot be before start_line")
         return self
 
 
 class EvidenceHit(StrictModel):
+    """一次检索返回给 Agent 的源码证据及相关度分数。"""
+
     chunk_id: str
     snapshot_id: str
     path: str
@@ -117,6 +135,8 @@ class EvidenceHit(StrictModel):
 
 
 class EvidenceReference(StrictModel):
+    """不含源码正文的稳定引用，用于分享报告和重新校验。"""
+
     chunk_id: str
     snapshot_id: str
     path: str
@@ -128,12 +148,15 @@ class EvidenceReference(StrictModel):
 
     @model_validator(mode="after")
     def validate_line_range(self) -> EvidenceReference:
+        """确保引用的源码行范围有效。"""
         if self.end_line < self.start_line:
             raise ValueError("end_line cannot be before start_line")
         return self
 
 
 class SourceIndexSummary(StrictModel):
+    """持久化索引的规模、快照和数据库位置摘要。"""
+
     repository_name: str
     snapshot_id: str
     indexed_files: int = Field(ge=0)

@@ -11,6 +11,8 @@ from vibeproof.core.models.common import InterpreterSource, RuntimeCheck, Runtim
 
 
 class CommandPlan(StrictModel):
+    """尚未执行的固定测试命令及其仓库快照。"""
+
     plan_id: str = Field(default_factory=lambda: f"command-plan:{uuid4().hex}")
     repository_name: str
     snapshot_id: str
@@ -25,6 +27,7 @@ class CommandPlan(StrictModel):
 
     @model_validator(mode="after")
     def validate_catalog_command(self) -> CommandPlan:
+        """拒绝固定目录之外的命令参数，避免计划被模型改写。"""
         expected_arguments = {
             RuntimeCheck.PYTEST: ["-m", "pytest", "-q"],
             RuntimeCheck.PYTEST_COLLECT: ["-m", "pytest", "--collect-only", "-q"],
@@ -35,6 +38,8 @@ class CommandPlan(StrictModel):
 
 
 class RuntimeEvidence(StrictModel):
+    """一次真实命令执行的退出码、受限输出、耗时和错误。"""
+
     evidence_id: str = Field(default_factory=lambda: f"runtime:{uuid4().hex}")
     plan_id: str
     check: RuntimeCheck
@@ -52,12 +57,15 @@ class RuntimeEvidence(StrictModel):
 
     @model_validator(mode="after")
     def validate_runtime_status(self) -> RuntimeEvidence:
+        """执行证据不能伪装成尚未执行的计划状态。"""
         if self.status in {RuntimeStatus.PLANNED, RuntimeStatus.SNAPSHOT_CHANGED}:
             raise ValueError("runtime evidence requires a command execution status")
         return self
 
 
 class RuntimeVerificationReport(StrictModel):
+    """将命令计划、可选执行证据和运行前后快照组合在一起。"""
+
     report_id: str = Field(default_factory=lambda: f"runtime-report:{uuid4().hex}")
     repository_name: str
     before_snapshot_id: str
@@ -72,6 +80,7 @@ class RuntimeVerificationReport(StrictModel):
 
     @model_validator(mode="after")
     def validate_execution_state(self) -> RuntimeVerificationReport:
+        """确保执行标记、证据、状态和仓库变化彼此一致。"""
         if self.executed and self.evidence is None:
             raise ValueError("executed runtime reports require evidence")
         if not self.executed and self.status != RuntimeStatus.PLANNED:

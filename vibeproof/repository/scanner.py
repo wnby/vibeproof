@@ -169,6 +169,8 @@ FRAMEWORK_MARKERS = {
 
 @dataclass(frozen=True)
 class ScanPolicy:
+    """限制一次扫描可读取的文件数量和单文件大小。"""
+
     max_files: int = 5_000
     max_file_size_bytes: int = 1_000_000
 
@@ -180,10 +182,13 @@ class ScanPolicy:
 
 
 class RepositoryScanner:
+    """只读取仓库元数据和文本，产出稳定清单，不导入或执行目标代码。"""
+
     def __init__(self, policy: ScanPolicy | None = None):
         self.policy = policy or ScanPolicy()
 
     def scan(self, root: str | Path) -> RepositoryManifest:
+        """扫描 ``root`` 并返回可复现的仓库快照；后续索引都绑定该快照 ID。"""
         repository_root = Path(root).expanduser().resolve(strict=True)
         if not repository_root.is_dir():
             raise NotADirectoryError(f"repository root is not a directory: {repository_root}")

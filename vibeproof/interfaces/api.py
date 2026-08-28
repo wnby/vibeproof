@@ -30,14 +30,20 @@ app.mount("/static", StaticFiles(directory=WEB_ROOT), name="static")
 
 
 class ApiModel(BaseModel):
+    """API 请求响应的共同严格校验基类。"""
+
     model_config = ConfigDict(populate_by_name=True, extra="forbid")
 
 
 class ScanRequest(ApiModel):
+    """用户在已配置工作区内选择的仓库相对路径。"""
+
     relative_path: str = Field(default=".", alias="relativePath", min_length=1, max_length=500)
 
 
 class TakeoverRequest(ScanRequest):
+    """启动完整接管所需的模型和运行验证选项。"""
+
     provider: Literal["mock", "openai-compatible", "ollama"] = "mock"
     model: str | None = Field(default=None, min_length=1, max_length=200)
     execute_runtime: bool = Field(default=False, alias="executeRuntime")
@@ -45,12 +51,16 @@ class TakeoverRequest(ScanRequest):
 
 
 class SourceExcerptRequest(ScanRequest):
+    """查看某条引用对应源码行的受限请求。"""
+
     source_path: str = Field(alias="sourcePath", min_length=1, max_length=500)
     start_line: int = Field(default=1, alias="startLine", ge=1)
     end_line: int = Field(default=120, alias="endLine", ge=1)
 
 
 class SourceExcerpt(ApiModel):
+    """返回给前端的仓库相对路径和源码片段。"""
+
     source_path: str = Field(alias="sourcePath")
     start_line: int = Field(alias="startLine")
     end_line: int = Field(alias="endLine")
@@ -59,16 +69,19 @@ class SourceExcerpt(ApiModel):
 
 @app.get("/", include_in_schema=False)
 def web_app() -> FileResponse:
+    """返回无需前端构建链的单页工作台。"""
     return FileResponse(WEB_ROOT / "index.html", media_type="text/html")
 
 
 @app.get("/health")
 def health() -> dict[str, str]:
+    """供本地启动和部署检查使用的轻量健康接口。"""
     return {"status": "ok", "service": "vibeproof", "version": __version__}
 
 
 @app.post("/api/v1/repositories/scan", response_model=RepositoryManifest)
 def scan_repository(request: ScanRequest) -> RepositoryManifest:
+    """扫描工作区内的一个仓库，但不建立索引或调用 Agent。"""
     target = _resolve_repository(request.relative_path)
     try:
         return RepositoryScanner().scan(target)
@@ -78,6 +91,7 @@ def scan_repository(request: ScanRequest) -> RepositoryManifest:
 
 @app.post("/api/v1/repositories/takeover", response_model=TakeoverReport)
 def takeover_repository(request: TakeoverRequest) -> TakeoverReport:
+    """组装配置与模型客户端，执行前端使用的完整 Takeover 工作流。"""
     target = _resolve_repository(request.relative_path)
     try:
         settings = Settings.from_env()
@@ -113,6 +127,7 @@ def takeover_repository(request: TakeoverRequest) -> TakeoverReport:
 
 @app.post("/api/v1/repositories/source", response_model=SourceExcerpt)
 def read_source_excerpt(request: SourceExcerptRequest) -> SourceExcerpt:
+    """按引用行号读取源码，同时确保路径和行数都留在所选仓库边界内。"""
     repository = _resolve_repository(request.relative_path)
     try:
         source = (repository / request.source_path).resolve(strict=True)

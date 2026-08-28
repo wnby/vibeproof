@@ -10,6 +10,7 @@ from vibeproof.core.models import AnswerReviewReport, EvidenceReference, QuizQue
 
 
 def render_answer_review(report: AnswerReviewReport, takeover: TakeoverReport) -> str:
+    """把逐题反馈、掌握度和下一步学习建议渲染为 Markdown。"""
     questions = {
         item.question_id: item
         for item in (takeover.learning_plan.questions if takeover.learning_plan else [])

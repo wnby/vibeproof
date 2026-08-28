@@ -28,7 +28,7 @@ from vibeproof.llm.client import ModelClient, ModelMessage
 
 
 class EvaluationCaseError(ValueError):
-    pass
+    """Eval 用例文件不是有效的 VibeProof 期望声明。"""
 
 
 DEFAULT_EVALUATION_CASE = EvaluationCase(
@@ -39,7 +39,7 @@ DEFAULT_EVALUATION_CASE = EvaluationCase(
 
 
 class ObservedModelClient:
-    """Record call count, failures, and latency while preserving the ModelClient interface."""
+    """保留 ModelClient 接口，同时记录调用次数、失败次数和总耗时。"""
 
     def __init__(self, task: str, client: ModelClient):
         self.task = task
@@ -51,6 +51,7 @@ class ObservedModelClient:
         self.duration_ms = 0
 
     def complete(self, messages: list[ModelMessage]) -> str:
+        """转发一次模型调用，并确保成功和失败都计入观测数据。"""
         self.calls += 1
         started = monotonic()
         try:
@@ -62,6 +63,7 @@ class ObservedModelClient:
             self.duration_ms += max(0, round((monotonic() - started) * 1_000))
 
     def summary(self) -> ModelCallSummary:
+        """把当前累计观测值转换成 Eval 报告使用的类型化摘要。"""
         return ModelCallSummary(
             task=self.task,
             provider=self.provider,
@@ -73,6 +75,8 @@ class ObservedModelClient:
 
 
 class RepositoryEvaluator:
+    """把 Takeover 产物与显式期望逐项比较，不调用模型自评。"""
+
     def evaluate(
         self,
         takeover: TakeoverReport,
@@ -83,6 +87,7 @@ class RepositoryEvaluator:
         case: EvaluationCase | None = None,
         model_calls: list[ModelCallSummary] | None = None,
     ) -> EvaluationReport:
+        """计算确定性质量指标，任一强制指标失败都会令 Eval 失败。"""
         selected_case = case or DEFAULT_EVALUATION_CASE
         expected = selected_case.expectations
         observed_calls = model_calls or []
@@ -346,6 +351,7 @@ class RepositoryEvaluator:
 
 
 def load_evaluation_case(path: str | Path) -> EvaluationCase:
+    """从 JSON 文件加载一组可重复执行的 Eval 期望。"""
     source = Path(path).expanduser().resolve()
     try:
         raw = source.read_text(encoding="utf-8")

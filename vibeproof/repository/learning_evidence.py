@@ -14,6 +14,8 @@ from vibeproof.repository.store import EvidenceStore
 
 @dataclass(frozen=True)
 class LearningEvidencePolicy:
+    """限制 Tutor 可看到的查询次数和源码证据数量。"""
+
     max_evidence: int = 12
     search_limit: int = 2
     max_queries: int = 8
@@ -29,11 +31,15 @@ class LearningEvidencePolicy:
 
 @dataclass(frozen=True)
 class LearningEvidenceSelection:
+    """Tutor 最终获得的证据及为得到这些证据执行过的查询。"""
+
     evidence: tuple[EvidenceHit, ...]
     queries: tuple[str, ...]
 
 
 class LearningEvidenceSelector:
+    """优先复用架构引用，再从入口、测试和依赖中补充教学证据。"""
+
     def __init__(self, store: EvidenceStore, policy: LearningEvidencePolicy | None = None):
         self.store = store
         self.policy = policy or LearningEvidencePolicy()
@@ -43,6 +49,7 @@ class LearningEvidenceSelector:
         manifest: RepositoryManifest,
         architecture: ArchitectureReport,
     ) -> LearningEvidenceSelection:
+        """在预算内选择有代表性的源码块，避免把整个仓库塞入提示词。"""
         selected: dict[str, EvidenceHit] = {}
         architecture_ids = [item.chunk_id for item in architecture.evidence]
         for hit in self.store.get_hits(manifest.snapshot_id, architecture_ids):

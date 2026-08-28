@@ -10,6 +10,7 @@ from vibeproof.core.models import RuntimeVerificationReport
 
 
 def render_runtime_report(report: RuntimeVerificationReport) -> str:
+    """把命令计划、执行输出和仓库变化证据渲染为 Markdown。"""
     plan = report.plan
     lines = [
         f"# Runtime verification: {report.repository_name}",

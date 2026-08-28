@@ -42,6 +42,7 @@ from vibeproof.workflows.takeover import TakeoverCoordinator, TakeoverPolicy
 
 
 def build_parser() -> argparse.ArgumentParser:
+    """定义全部子命令及默认配置；这里只描述输入，不执行业务。"""
     settings = Settings.from_env()
     parser = argparse.ArgumentParser(prog="vibeproof", description="Evidence-backed Python repository takeover")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -180,6 +181,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> int:
+    """把 CLI 参数翻译为对应服务调用，并统一处理输出路径和退出码。"""
     parser = build_parser()
     args = parser.parse_args(argv)
     try:

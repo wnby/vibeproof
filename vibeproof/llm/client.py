@@ -27,28 +27,34 @@ from vibeproof.config import (
 
 
 class ModelClientError(RuntimeError):
-    pass
+    """模型请求或返回格式失败，Agent 会把它记录为模型阶段失败。"""
 
 
 class TransientModelError(ModelClientError):
-    """A temporary transport failure that may succeed on one bounded retry."""
+    """可能在一次有限重试后恢复的临时传输错误。"""
 
 
 @dataclass(frozen=True)
 class ModelMessage:
+    """与具体 Provider 无关的一条角色消息。"""
+
     role: str
     content: str
 
 
 class ModelClient(Protocol):
+    """所有 Agent 依赖的最小模型 Strategy；上层不感知具体 API。"""
+
     provider: str
     model: str
 
-    def complete(self, messages: list[ModelMessage]) -> str: ...
+    def complete(self, messages: list[ModelMessage]) -> str:
+        """发送完整消息列表，并返回未经业务解析的模型文本。"""
+        ...
 
 
 class RetryingModelClient:
-    """Retry one transient transport failure without coupling retry logic to Agents."""
+    """重试装饰器；只处理临时传输错误，不把重试逻辑泄漏给 Agent。"""
 
     def __init__(
         self,
@@ -67,6 +73,7 @@ class RetryingModelClient:
         self.retry_delay_seconds = retry_delay_seconds
 
     def complete(self, messages: list[ModelMessage]) -> str:
+        """委托真实客户端，并在限定次数内重试 ``TransientModelError``。"""
         for attempt in range(1, self.max_attempts + 1):
             try:
                 return self.client.complete(messages)
@@ -79,10 +86,13 @@ class RetryingModelClient:
 
 
 class MockAnalystModelClient:
+    """离线 Analyst 替身，用固定规则验证检索动作和引用闭环。"""
+
     provider = "mock"
     model = "deterministic-analyst-v1"
 
     def complete(self, messages: list[ModelMessage]) -> str:
+        """先依次请求推荐查询，再从已返回证据中组成确定性结论。"""
         state = _extract_state(messages)
         completed = set(state.get("completed_queries", []))
         recommended = state.get("recommended_queries", [])
@@ -136,10 +146,13 @@ class MockAnalystModelClient:
 
 
 class MockTutorModelClient:
+    """离线 Tutor 替身，把每个代表性源码位置转换成学习单元和题目。"""
+
     provider = "mock"
     model = "deterministic-tutor-v1"
 
     def complete(self, messages: list[ModelMessage]) -> str:
+        """根据证据列表生成可重复的学习计划，供工作流和测试使用。"""
         state = _extract_tutor_state(messages)
         evidence = state.get("evidence", [])
         repository = state.get("repository", {})
@@ -196,12 +209,13 @@ class MockTutorModelClient:
 
 
 class MockAnswerReviewModelClient:
-    """Validate answer-review orchestration without pretending to understand the answer."""
+    """只验证答案评审编排和数据结构，不假装理解用户答案语义。"""
 
     provider = "mock"
     model = "structure-only-reviewer-v1"
 
     def complete(self, messages: list[ModelMessage]) -> str:
+        """返回不带语义分数的结构化结果，明确要求真实模型才能评分。"""
         state = _extract_review_state(messages)
         question = state.get("question", {})
         question_id = question.get("question_id", "unknown") if isinstance(question, dict) else "unknown"
@@ -219,6 +233,8 @@ class MockAnswerReviewModelClient:
 
 
 class OpenAICompatibleModelClient:
+    """把统一消息转换为 OpenAI Chat Completions 请求，并取回 JSON 文本。"""
+
     provider = "openai-compatible"
 
     def __init__(
@@ -240,6 +256,7 @@ class OpenAICompatibleModelClient:
         self.stream = stream
 
     def complete(self, messages: list[ModelMessage]) -> str:
+        """调用兼容端点；流式响应在传输层拼接完成后再交给 Agent。"""
         payload = {
             "model": self.model,
             "messages": [{"role": message.role, "content": message.content} for message in messages],
@@ -276,6 +293,8 @@ class OpenAICompatibleModelClient:
 
 
 class OllamaModelClient:
+    """调用本地 Ollama `/api/chat` 的模型 Strategy。"""
+
     provider = "ollama"
 
     def __init__(self, model: str, base_url: str, timeout_seconds: float = 120.0):
@@ -288,6 +307,7 @@ class OllamaModelClient:
         self.timeout_seconds = timeout_seconds
 
     def complete(self, messages: list[ModelMessage]) -> str:
+        """请求 Ollama 的非流式 JSON 模式并返回消息正文。"""
         payload = {
             "model": self.model,
             "messages": [{"role": message.role, "content": message.content} for message in messages],
@@ -318,6 +338,7 @@ def create_model_client(
     task: str = "analyst",
     settings: Settings | None = None,
 ) -> ModelClient:
+    """依据 Provider 和 Agent 任务创建客户端，是模型实现的唯一组装入口。"""
     settings = settings or Settings.from_env()
     normalized = provider.strip().lower()
     normalized_task = task.strip().lower()

@@ -40,6 +40,8 @@ questions answerable from cited source, distinguish reading from runtime proof, 
 
 @dataclass(frozen=True)
 class TutorPolicy:
+    """限制 Tutor 的证据预算和最终提示词状态大小。"""
+
     evidence_policy: LearningEvidencePolicy = LearningEvidencePolicy()
     max_state_characters: int = 30_000
 
@@ -50,6 +52,8 @@ class TutorPolicy:
 
 @dataclass(frozen=True)
 class LearningReviewResult:
+    """学习计划审查后的有效单元、题目、引用和拒绝原因。"""
+
     units: tuple[LearningUnitDraft, ...]
     questions: tuple[QuizQuestionDraft, ...]
     evidence: tuple[EvidenceReference, ...]
@@ -57,6 +61,8 @@ class LearningReviewResult:
 
 
 class LearningPlanReviewer:
+    """确定性检查模型生成的学习计划是否只引用已提供的当前证据。"""
+
     def __init__(self, store: EvidenceStore):
         self.store = store
 
@@ -66,6 +72,7 @@ class LearningPlanReviewer:
         observed: dict[str, EvidenceHit],
         snapshot_id: str,
     ) -> LearningReviewResult:
+        """校验引用、单元序号、题目归属和评分点，再返回可发布内容。"""
         requested = list(
             dict.fromkeys(
                 evidence_id
@@ -127,6 +134,8 @@ class LearningPlanReviewer:
 
 
 class RepositoryTutorAgent:
+    """把架构结论和代表性源码证据转换为循序渐进的学习计划。"""
+
     def __init__(
         self,
         store: EvidenceStore,
@@ -140,6 +149,7 @@ class RepositoryTutorAgent:
         self.reviewer = LearningPlanReviewer(store)
 
     def run(self, manifest: RepositoryManifest, architecture: ArchitectureReport) -> LearningPlan:
+        """选择证据、调用 Tutor 模型并审查结果；失败时返回明确的降级计划。"""
         selection = self.selector.select(manifest, architecture)
         if not selection.evidence:
             return self._failed_plan(manifest, "No source evidence was available for a learning plan.")

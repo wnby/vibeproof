@@ -23,6 +23,8 @@ from vibeproof.core.models import (
 
 @dataclass(frozen=True)
 class IndexPolicy:
+    """控制源码块长度及相邻块的重叠行数。"""
+
     max_chunk_lines: int = 120
     overlap_lines: int = 12
 
@@ -37,6 +39,8 @@ class IndexPolicy:
 
 @dataclass(frozen=True)
 class IndexedSource:
+    """索引器在写入数据库前生成的内存产物集合。"""
+
     symbols: tuple[SourceSymbol, ...]
     chunks: tuple[SourceChunk, ...]
     imports: tuple[ImportEdge, ...]
@@ -51,6 +55,7 @@ class PythonSourceIndexer:
         self.policy = policy or IndexPolicy()
 
     def build(self, root: str | Path, manifest: RepositoryManifest) -> IndexedSource:
+        """根据已扫描清单解析 Python 文件，并拒绝扫描后发生变化的文件。"""
         repository_root = Path(root).expanduser().resolve(strict=True)
         if not repository_root.is_dir():
             raise NotADirectoryError(f"repository root is not a directory: {repository_root}")
@@ -120,6 +125,8 @@ class PythonSourceIndexer:
 
 
 class _SymbolVisitor(ast.NodeVisitor):
+    """遍历单个 Python AST，并保留嵌套关系以构造限定名。"""
+
     def __init__(self, path: str, snapshot_id: str):
         self.path = path
         self.snapshot_id = snapshot_id
@@ -127,12 +134,14 @@ class _SymbolVisitor(ast.NodeVisitor):
         self.symbols: list[SourceSymbol] = []
 
     def visit_ClassDef(self, node: ast.ClassDef) -> None:
+        """记录类并在访问其子节点期间把类放入父级栈。"""
         self._record(node, SymbolKind.CLASS)
         self.parents.append((node.name, SymbolKind.CLASS))
         self.generic_visit(node)
         self.parents.pop()
 
     def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
+        """根据当前父级把同步函数区分为模块函数或类方法。"""
         kind = SymbolKind.METHOD if self._directly_inside_class() else SymbolKind.FUNCTION
         self._record(node, kind)
         self.parents.append((node.name, kind))
@@ -140,6 +149,7 @@ class _SymbolVisitor(ast.NodeVisitor):
         self.parents.pop()
 
     def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef) -> None:
+        """根据当前父级把异步函数区分为模块函数或异步方法。"""
         kind = SymbolKind.ASYNC_METHOD if self._directly_inside_class() else SymbolKind.ASYNC_FUNCTION
         self._record(node, kind)
         self.parents.append((node.name, kind))
@@ -306,6 +316,7 @@ def _line_windows(start: int, end: int, policy: IndexPolicy) -> list[tuple[int, 
 
 
 def query_terms(query: str) -> tuple[str, ...]:
+    """把用户或 Agent 查询规范化为确定性的检索词集合。"""
     raw_terms = re.findall(r"[A-Za-z_][A-Za-z0-9_\.]*|\d+|[\u3400-\u9fff]+", query.lower())
     expanded: list[str] = []
     for term in raw_terms:
