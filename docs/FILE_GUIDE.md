@@ -1,105 +1,89 @@
-# 文件职责导览
+# 文件职责导航
 
-这份文档用于帮助第一次阅读 VibeProof 的开发者快速定位代码。Python 文件内部也有对应的中文模块级
-说明；对于 JSON、锁文件、版本文件等不适合写注释的格式，以本导览为准。
+第一次阅读 VibeProof 时，建议按照 `config → core → repository → llm → agents → workflows → interfaces` 的顺序。
+每个目录只承担一类职责，业务依赖保持单向。
 
-## 根目录
+## `vibeproof/` 代码包
 
-- `README.md`：项目首页，介绍定位、现有能力、快速开始、安全边界和路线图。
-- `pyproject.toml`：Python 包元数据、运行/开发依赖以及 pytest、Ruff、Hatch 的工具配置。
-- `uv.lock`：由 uv 自动生成的精确依赖锁文件，用于本地和 CI 复现同一套环境，不应手工修改。
-- `.python-version`：规定项目默认使用的 Python 版本，供 uv 和版本管理工具读取。
-- `.env.example`：API 工作区和模型提供方环境变量的安全示例，不包含真实密钥。
-- `.gitignore`：声明虚拟环境、本地证据库、缓存、构建物和密钥文件等不应提交的内容。
-- `LICENSE`：项目采用的 MIT 开源许可证全文。
+### 根入口
 
-## 自动化
+- `config.py`：集中定义全部环境变量、默认路径、模型地址、超时和重试配置；生成不可变 `Settings`。
+- `__main__.py`：把 `python -m vibeproof` 转交给 CLI。
+- `__init__.py`：声明包版本。
 
-- `.github/workflows/ci.yml`：GitHub Actions 持续集成，固定在 Linux/Python 3.11 上安装锁定依赖，然后运行
-  Ruff 和全部 pytest 测试。
+### `core/models/` 数据契约
 
-## 核心包 `vibeproof/`
+这里只包含 Pydantic 模型和状态枚举，不访问文件、数据库、网络或模型。
 
-- `__init__.py`：包级入口和版本号声明。
-- `__main__.py`：让用户可以用 `python -m vibeproof` 启动 CLI。
-- `schemas.py`：全部阶段共享的 Pydantic 数据模型、状态枚举和跨字段校验。
-- `scanner.py`：不执行目标代码的仓库扫描、文件分类、敏感文件跳过和快照计算。
-- `source_index.py`：通过 AST 提取 Python 符号、导入关系和带行号的源码分块。
-- `evidence_store.py`：在本地 SQLite 中保存、搜索和重新加载快照绑定的源码证据。
-- `model_client.py`：统一 Mock、OpenAI-compatible 和 Ollama 的模型调用接口。
-- `analyst.py`：受限搜索源码并生成带引用架构结论的仓库分析 Agent。
-- `reporting.py`：把架构分析结果渲染为 Markdown。
-- `runtime.py`：计划或显式执行固定 pytest 检查，并记录运行证据和前后快照。
-- `runtime_reporting.py`：把运行计划与执行结果渲染为 Markdown。
-- `learning_evidence.py`：在有限预算内为教学 Agent 选择入口、测试、依赖等代表性证据。
-- `tutor.py`：根据架构与源码证据生成学习单元、练习和测验，并审查所有引用。
-- `coordinator.py`：串联扫描、索引、分析、教学和运行验证，生成统一接管结果。
-- `takeover_reporting.py`：把完整接管过程和各阶段产物汇总为 Markdown。
-- `quiz.py`：从 JSON 接管报告生成答题模板，并负责报告和答题文件的严格解析。
-- `answer_reviewer.py`：根据题目、评分点和限定源码证据评审答案，计算学习进度。
-- `review_reporting.py`：把逐题评审和学习进度渲染为 Markdown。
-- `evaluator.py`：按显式用例确定性评估接管状态、引用、学习覆盖和运行结果。
-- `evaluation_reporting.py`：把 Eval 指标和接管摘要渲染为 Markdown。
-- `structured_output.py`：有限兼容真实模型的 JSON 围栏包装，再交给严格数据模型校验。
-- `cli.py`：定义全部命令行参数、业务服务调用、文件输出和退出码。
-- `api.py`：提供只允许扫描配置工作区内部路径的 FastAPI 接口。
+- `common.py`：严格模型基类以及跨阶段共享的状态枚举。
+- `repository.py`：仓库快照、文件清单、源码符号、代码块和引用证据。
+- `analysis.py`：Agent 动作、分析结论、执行轨迹和架构报告。
+- `learning.py`：学习计划、题目、答题提交、评审结果和学习进度。
+- `runtime.py`：运行计划、执行证据和运行验证报告。
+- `takeover.py`：完整接管流程的阶段记录和汇总报告。
+- `evaluation.py`：Eval 用例、指标、模型调用摘要和评估报告。
+- `__init__.py`：统一导出公共模型，让业务模块不需要记住具体模型文件。
 
-## 测试 `tests/`
+### `repository/` 仓库证据能力
 
-- `test_schemas.py`：验证核心数据契约会拒绝矛盾状态。
-- `test_scanner.py`：验证扫描结果、快照稳定性及文件读取边界。
-- `test_source_index.py`：验证 AST 符号、导入、分块和文件完整性检查。
-- `test_evidence_store.py`：验证 SQLite 写入、检索、引用加载和快照隔离。
-- `test_model_client.py`：验证任务专用 Mock 和两类真实模型传输契约。
-- `test_analyst.py`：验证分析 Agent 的动作预算、引用审查和报告输出。
-- `test_runtime.py`：验证运行计划、显式执行、超时、输出与快照保护。
-- `test_learning_evidence.py`：验证教学证据选择范围、预算、顺序和去重。
-- `test_tutor.py`：验证学习计划、题目关系及教学引用审查。
-- `test_coordinator.py`：验证统一接管的成功、部分失败和快照变化流程。
-- `test_quiz.py`：验证答题模板创建、身份保留和 JSON 文件错误处理。
-- `test_answer_reviewer.py`：验证语义评分、Mock 结构模式和答案引用边界。
-- `test_review_reporting.py`：验证 Markdown 学习报告的关键内容。
-- `test_evaluator.py`：验证 Eval 指标、用例文件和三个固定仓库场景。
-- `test_structured_output.py`：验证真实模型 JSON 包装兼容和歧义输出拒绝边界。
-- `test_cli.py`：验证各子命令和完整学习闭环的端到端行为。
-- `test_api.py`：验证 API 正常扫描及工作区路径限制。
+- `scanner.py`：静态扫描仓库、分类文件并计算稳定快照，不执行目标代码。
+- `index.py`：使用 AST 提取 Python 符号、导入关系和带行号源码块。
+- `store.py`：通过 SQLite 保存和检索快照绑定的证据，实现 Repository 模式。
+- `learning_evidence.py`：在有限预算内为 Tutor 选择代表性学习证据。
 
-## 文档 `docs/`
+### `llm/` 模型边界
 
-- `MVP.md`：第一版 MVP 的问题定义、范围、数据流和验收标准。
-- `ARCHITECTURE.md`：按开发阶段解释整体组件关系和数据流。
-- `THREAT_MODEL.md`：说明目标仓库、模型输入、运行命令和敏感信息相关的安全边界。
-- `DAY2.md`：记录 AST 源码索引和本地证据库的实现。
-- `DAY3.md`：记录源码检索、架构分析 Agent 和引用审查。
-- `DAY4.md`：记录计划优先的运行验证和执行证据。
-- `DAY5.md`：记录统一接管协调器和阶段化报告。
-- `DAY6.md`：记录源码证据驱动的学习计划和测验生成。
-- `DAY7.md`：记录答题模板、证据化答案评审和学习进度闭环。
-- `DAY8.md`：记录确定性 Agent Eval、固定场景和真实模型测试边界。
-- `EVALUATION.md`：说明指标、自定义用例、中转站配置和 Eval 命令。
-- `FILE_GUIDE.md`：当前文件，集中解释仓库内各文件的职责。
+- `client.py`：定义 `ModelClient` Strategy，包含 Mock、OpenAI-compatible、Ollama Provider 和重试 Decorator。
+- `structured_output.py`：提取模型返回的单个 JSON 对象，再交给 Pydantic 校验。
 
-## 示例 `examples/`
+### `agents/` 子 Agent
 
-- `mindbridge-manifest.json`：对 MindBridge 执行静态扫描后得到的真实仓库清单示例。
-- `mindbridge-index-summary.json`：MindBridge AST 索引规模与本地数据库位置摘要。
-- `mindbridge-analyst-summary.json`：MindBridge 架构分析和引用审查结果摘要。
-- `mindbridge-learning-summary.json`：MindBridge 学习单元、问题和证据位置摘要。
-- `mindbridge-takeover-summary.json`：MindBridge 一次完整计划式接管的阶段结果摘要。
-- `mindbridge-review-summary.json`：MindBridge 答案文件在 Mock 结构评审模式下的验证摘要。
-- `vibeproof-runtime-summary.json`：VibeProof 对自身执行 pytest 后保存的运行证据摘要。
-- `quiz-submission.example.json`：说明答题文件字段结构的示例；实际使用时应通过 `quiz` 命令生成身份信息。
-- `evaluation-suite-summary.json`：三个 Mock 固定评估场景的结果与真实模型待测状态。
-- `relay-evaluation-summary.json`：脱敏记录星辰 AI Claude 实测、客户端修复和剩余上游限制。
+- `analyst.py`：按动作预算检索源码，生成带引用的架构结论，并审查引用。
+- `tutor.py`：根据已验证证据生成学习单元、练习和题目。
+- `reviewer.py`：根据题目、评分点和限定源码证据评审用户答案。
+- `__init__.py`：公开三个 Agent 及其 Policy，打开目录即可看到全部 Agent。
 
-## 评估场景 `evals/`
+### `runtime/` 运行验证
 
-- `cases/healthy_service.json`：声明正常服务应完整接管并通过 pytest。
-- `cases/broken_service.json`：声明已知缺陷服务应保留 FAILED 运行证据。
-- `cases/ambiguous_agent.json`：声明异步多组件场景的计划式接管预期。
-- `fixtures/healthy_service/app.py`：正常服务的业务函数。
-- `fixtures/healthy_service/test_app.py`：正常服务的两个通过测试。
-- `fixtures/broken_service/app.py`：故意保留税额计算缺陷的业务函数。
-- `fixtures/broken_service/test_app.py`：稳定暴露缺陷的失败测试。
-- `fixtures/ambiguous_agent/service.py`：Coordinator、Worker 和异步 gather 实现。
-- `fixtures/ambiguous_agent/test_service.py`：验证异步协调结果的测试。
+- `verifier.py`：生成固定 pytest 命令计划；只有显式开启时才执行并记录前后快照。
+
+### `workflows/` 用户用例
+
+- `takeover.py`：`TakeoverCoordinator` 依次协调扫描、索引、分析、教学、运行验证和报告产物。
+- `evaluation.py`：执行确定性质量门槛，区分 Agent 失败与“如实发现目标缺陷”。
+- `quiz.py`：创建答题模板并严格读取报告与提交文件。
+
+### `reports/` 展示层
+
+- `architecture.py`：架构报告 Markdown。
+- `takeover.py`：完整接管报告 Markdown。
+- `runtime.py`：运行验证 Markdown。
+- `review.py`：答题评审和学习进度 Markdown。
+- `evaluation.py`：Eval 指标 Markdown。
+
+### `interfaces/` 外部入口
+
+- `cli.py`：命令参数、用例调用、文件输出与退出码。
+- `api.py`：FastAPI 路由与请求模型，只负责把 HTTP 请求翻译为工作流调用。
+
+### `web/` 浏览器界面
+
+- `index.html`：页面结构。
+- `styles.css`：白色主题与布局。
+- `app.js`：调用 Takeover API、消费报告并渲染 Agent 活动和证据。
+- `favicon.svg`：站点图标。
+
+## `tests/` 测试结构
+
+测试目录镜像生产包：`agents/`、`core/`、`interfaces/`、`llm/`、`repository/`、`reports/`、`runtime/`、
+`workflows/`。`test_architecture.py` 使用 AST 检查包依赖方向，`test_config.py` 验证集中配置，`support.py` 只保存
+跨模块共享的最小测试场景构造器。
+
+## 其他目录
+
+- `evals/`：健康、故障和异步多组件三类固定评估场景及其显式期望。
+- `examples/`：脱敏的扫描、接管、学习、运行和真实模型测试摘要。
+- `docs/`：MVP、架构、威胁模型、评估指南和每日开发记录。
+- `.github/workflows/ci.yml`：在 GitHub Actions 中运行 Ruff 和全部 pytest。
+- `.env.example`：配置模板，不包含真实密钥。
+- `pyproject.toml` / `uv.lock`：项目元数据与可复现依赖。

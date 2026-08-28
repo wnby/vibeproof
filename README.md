@@ -218,6 +218,26 @@ Content-Type: application/json
 `executeRuntime` must be explicitly enabled before the fixed pytest command is run. Clicking a verified claim in the
 Web workspace requests only its bounded, repository-confined source range from `/api/v1/repositories/source`.
 
+## Project structure
+
+```text
+vibeproof/
+├── config.py          # environment variables and application defaults
+├── agents/            # Analyst, Tutor, and Answer Reviewer agents
+├── core/models/       # typed contracts grouped by business domain
+├── repository/        # scanning, source indexing, retrieval, and SQLite evidence
+├── llm/               # model protocol, providers, retry decorator, structured output
+├── runtime/           # explicit repository test planning and execution
+├── workflows/         # takeover, evaluation, and quiz use cases
+├── reports/           # Markdown renderers
+├── interfaces/        # CLI and FastAPI entry points
+└── web/               # dependency-free browser interface
+```
+
+Dependencies point inward: `interfaces -> workflows/agents -> repository/llm/runtime -> core`. A dedicated architecture
+test prevents lower layers from importing the API, reports, or workflow orchestration. See
+[docs/FILE_GUIDE.md](docs/FILE_GUIDE.md) for the responsibility of each package.
+
 ## Development
 
 ```bash

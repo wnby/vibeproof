@@ -1,5 +1,33 @@
 # Architecture
 
+## Current package boundaries
+
+```text
+interfaces (CLI / API / Web)
+        |
+        v
+workflows --------> agents
+   |                 |  |
+   v                 v  v
+runtime          repository <----> llm
+   |                 |             |
+   +-----------------+-------------+
+                     v
+                core/models
+```
+
+- `config.py` is the only environment-configuration source.
+- `core/models/` contains pure typed contracts and imports no application services.
+- `repository/`, `llm/`, and `runtime/` provide bounded capabilities.
+- `agents/` reason through the model protocol and repository evidence; they do not know about HTTP or CLI concerns.
+- `workflows/` coordinate complete user use cases without becoming another reasoning Agent.
+- `interfaces/` translate user input into workflow calls, while `reports/` only render typed results.
+- `tests/test_architecture.py` enforces the allowed import direction with Python AST inspection.
+
+The structure uses Strategy for model providers, Decorator for bounded retry, Repository for evidence persistence, and a
+Coordinator/Facade for the complete takeover workflow. These patterns are kept local; there is no generic framework or
+dependency-injection container.
+
 ## Day 1
 
 ```text
