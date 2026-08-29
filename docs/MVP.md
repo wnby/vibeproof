@@ -46,7 +46,8 @@ runtime evidence contains an approved command, exit code, and bounded output exc
 
 The current handoff document contains repository metadata, index statistics, source-supported claims, rejected claims,
 unresolved questions, reviewed learning units, source-grounded quiz questions, runtime plans or evidence, workflow
-steps, and known limitations for one repository snapshot. Future tutoring milestones will add answer review and progress.
+steps, and known limitations for one repository snapshot. A snapshot-bound answer template and evidence-backed review
+report close the learning loop and summarize weak units and progress.
 
 ## Out of scope for v0.1
 

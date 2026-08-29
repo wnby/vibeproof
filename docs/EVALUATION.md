@@ -100,17 +100,24 @@ Remove-Item Env:VIBEPROOF_AI_API_KEY
 
 ### gpt-5.6-terra 实测记录
 
-2026-08-28 使用同一 OpenAI-compatible Chat Completions 端点测试 `gpt-5.6-terra`，未记录 API Key：
+2026-08-28 使用优化线路 `https://frapi.centos.hk/v1` 测试 `gpt-5.6-terra`，未记录 API Key。
+早期尝试暴露了两个独立问题：SSE 末尾包含仅有 usage 的空 choices 事件，以及模型无法稳定复制完整
+`chunk:sha256` 引用。项目没有增加中转站专用分支，而是调整了通用 Agent 接口：
 
-- 非流式极短请求返回中转站 `do_request_failed`。
-- 使用 VibeProof SSE 客户端的极短请求成功，并在 9.2 秒返回精确的 `OK`。
-- 第一次完整 `healthy_service` Eval 在 Analyst 第一次请求时遇到 `do_request_failed`；本地 Runtime pytest 通过。
-- 最后一次完整重试共调用 Analyst 两次：第一次传输成功，但模型在 JSON 对象后附加了非空内容，被严格结构校验记为 `INVALID_ACTION`；第二次返回中转站 `do_request_failed`。
-- 架构报告最终为 `MODEL_ERROR`，没有可接受 Claim，Tutor 未运行，Takeover 为 `PARTIAL`，因此端到端 Eval 未通过。
+- 从 Pydantic 输出模型生成 `json_schema`，通过 `strict=true` 约束 Analyst、Tutor 和 Reviewer。
+- 同步 ``complete`` 工作流默认使用非流式响应；SSE 仍作为可选传输实现保留。
+- 模型上下文使用 `E1`、`E2` 等短证据别名，返回后再确定性恢复完整 chunk ID。
+- SSE 解析器接受 OpenAI-compatible 服务合法的 usage-only 结束事件。
 
-这个结果区分了两个不同问题：中转站线路存在间歇性传输失败；模型输出也没有稳定满足单一 JSON 对象契约。后续不能只增加网络重试，还需要评估服务端 Structured Output、Prompt 契约和严格校验之间的兼容方式。
+最终对 `healthy_service` 执行完整 Takeover，46.6 秒后以退出码 0 完成：
 
-随后加入了最小可靠性层：OpenAI-compatible 请求携带 `response_format=json_object`，并由 `RetryingModelClient` 只对临时传输异常最多追加一次尝试。重测持续 127.1 秒后，中转站关闭连接且没有返回模型内容；Runtime pytest 仍通过。该结果表明有界重试按设计停止，但不能修复持续的外部线路故障，因此没有继续增加重试或中转站专用分支。
+- Takeover 为 `COMPLETED`。
+- Architecture 为 `COMPLETED / VERIFIED`，接受 4 条结论，拒绝 0 条。
+- Learning Plan 为 `SOURCE_GROUNDED`，生成 4 个学习单元和 4 道问题，拒绝 0 项。
+- Runtime pytest 为 `PASSED`，执行前后仓库快照保持一致。
+
+这次实测验证的是完整 Agent 数据流，而不只是一个短模型请求。后续真实模型回归仍应通过 Eval 用例记录
+模型、线路、耗时、引用完整性和阶段状态，避免把一次成功当作长期稳定性结论。
 
 ## 自定义用例
 
