@@ -20,11 +20,13 @@ uv run python -m vibeproof eval D:\projects\demo `
 
 ## 固定场景
 
-仓库内置三类可重复场景：
+仓库内置三类小型可重复场景和一个真实仓库质量门槛：
 
 - `healthy_service`：两个测试通过，用于验证完整成功路径。
 - `broken_service`：业务代码故意保留缺陷，pytest 失败才是正确结果。
 - `ambiguous_agent`：包含 Coordinator、Worker 和异步 gather，用于验证多组件学习覆盖。
+- `mindbridge`：要求覆盖 FastAPI 入口、聊天服务、Harness 和事件驱动 Runtime；目标源码不随仓库分发，
+  用例用于本地真实仓库回归。
 
 例如运行正常场景：
 
@@ -118,6 +120,9 @@ Remove-Item Env:VIBEPROOF_AI_API_KEY
 
 这次实测验证的是完整 Agent 数据流，而不只是一个短模型请求。后续真实模型回归仍应通过 Eval 用例记录
 模型、线路、耗时、引用完整性和阶段状态，避免把一次成功当作长期稳定性结论。
+
+MindBridge 中型真实仓库的完整失败演进、通用检索改进和最终 4/4 关键路径结果见
+[MindBridge 真实仓库评测](MINDBRIDGE_EVALUATION.md)。
 
 ## 自定义用例
 

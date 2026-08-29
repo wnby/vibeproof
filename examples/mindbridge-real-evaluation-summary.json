@@ -1,0 +1,57 @@
+{
+  "schema_version": "1.0",
+  "case_id": "mindbridge-real-repository",
+  "repository_name": "mindbridge-py",
+  "snapshot_id": "sha256:bbbf8206c27b9d5ce93da77478ddca4a05018e2e5c3cb9e49cc2d1f3b400b522",
+  "provider": "openai-compatible",
+  "model": "gpt-5.6-terra",
+  "run_configuration": {
+    "max_queries": 6,
+    "max_steps": 10,
+    "runtime_execution": false
+  },
+  "result": {
+    "evaluation_status": "PASSED",
+    "takeover_status": "COMPLETED",
+    "architecture_status": "COMPLETED",
+    "verification_status": "VERIFIED",
+    "learning_status": "SOURCE_GROUNDED",
+    "runtime_status": "PLANNED",
+    "accepted_claims": 8,
+    "rejected_claims": 0,
+    "learning_units": 5,
+    "quiz_questions": 5,
+    "passed_required_metrics": 14,
+    "failed_required_metrics": 0,
+    "duration_ms": 92469
+  },
+  "required_path_coverage": {
+    "actual": "4/4",
+    "paths": [
+      "app/main.py",
+      "app/api/routes.py",
+      "app/agents/harness.py",
+      "app/agents/event_driven_runtime.py"
+    ]
+  },
+  "analysis_trace": [
+    "app/main.py",
+    "app/api/routes.py",
+    "app/services/chat.py",
+    "app/agents/harness.py",
+    "app/agents/factory.py",
+    "app/agents/event_driven_runtime.py",
+    "FINAL_ANSWER"
+  ],
+  "model_calls": {
+    "total": 8,
+    "failures": 0,
+    "analyst_calls": 7,
+    "tutor_calls": 1
+  },
+  "notes": [
+    "The target repository was scanned and indexed without executing its code.",
+    "The runtime check remained plan-only, so PLANNED is the expected result.",
+    "No API key, local absolute path, source excerpt, or evidence database is included in this summary."
+  ]
+}

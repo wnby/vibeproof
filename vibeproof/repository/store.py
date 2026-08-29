@@ -109,8 +109,15 @@ class EvidenceStore:
             ).fetchone()
         return row is not None
 
-    def search(self, snapshot_id: str, query: str, limit: int = 5) -> list[EvidenceHit]:
-        """在指定快照内确定性排序源码块，返回受数量限制的证据。"""
+    def search(
+        self,
+        snapshot_id: str,
+        query: str,
+        limit: int = 5,
+        *,
+        exclude_chunk_ids: set[str] | None = None,
+    ) -> list[EvidenceHit]:
+        """在指定快照内确定性排序源码块，并可跳过 Agent 已经读过的证据。"""
         if limit < 1 or limit > 100:
             raise ValueError("limit must be between 1 and 100")
         normalized_query = query.strip().lower()
@@ -140,12 +147,36 @@ class EvidenceStore:
                 (snapshot_id,),
             ).fetchall()
 
+        excluded = exclude_chunk_ids or set()
+        normalized_paths = {
+            row["path"].replace("\\", "/").lower(): row["path"]
+            for row in rows
+        }
+        normalized_query_path = normalized_query.replace("\\", "/")
+        mentioned_paths = {
+            canonical
+            for normalized, canonical in normalized_paths.items()
+            if normalized in normalized_query_path
+        }
+        if mentioned_paths:
+            rows = [row for row in rows if row["path"] in mentioned_paths]
+
         scored: list[tuple[float, sqlite3.Row]] = []
         for row in rows:
+            if row["chunk_id"] in excluded:
+                continue
             score = _score_row(row, normalized_query, terms)
             if score > 0:
                 scored.append((score, row))
-        scored.sort(key=lambda item: (-item[0], item[1]["path"], item[1]["start_line"], item[1]["chunk_id"]))
+        scored.sort(
+            key=lambda item: (
+                0 if mentioned_paths and item[1]["symbol"] is None else 1,
+                -item[0],
+                item[1]["path"],
+                item[1]["start_line"],
+                item[1]["chunk_id"],
+            )
+        )
 
         return [
             EvidenceHit(
@@ -162,6 +193,58 @@ class EvidenceStore:
             )
             for score, row in scored[:limit]
         ]
+
+    def get_imported_paths(
+        self,
+        snapshot_id: str,
+        source_paths: list[str],
+        *,
+        max_paths_per_source: int = 12,
+    ) -> dict[str, list[str]]:
+        """把静态 import 解析为当前快照内真实存在的 Python 文件，供 Agent 沿调用链导航。"""
+        unique_sources = list(dict.fromkeys(source_paths))
+        if not unique_sources:
+            return {}
+        if len(unique_sources) > 100:
+            raise ValueError("at most 100 source paths may be inspected at once")
+        if max_paths_per_source < 1 or max_paths_per_source > 100:
+            raise ValueError("max_paths_per_source must be between 1 and 100")
+        if not self.database_path.is_file():
+            raise IndexNotFoundError("source index does not exist; run `vibeproof index` first")
+
+        placeholders = ",".join("?" for _ in unique_sources)
+        with self._connect() as connection:
+            _create_schema(connection)
+            snapshot = connection.execute(
+                "SELECT 1 FROM snapshots WHERE snapshot_id = ?",
+                (snapshot_id,),
+            ).fetchone()
+            if snapshot is None:
+                raise IndexNotFoundError("this repository snapshot is not indexed; run `vibeproof index` again")
+            known_paths = {
+                row["path"]
+                for row in connection.execute(
+                    "SELECT DISTINCT path FROM chunks WHERE snapshot_id = ?",
+                    (snapshot_id,),
+                ).fetchall()
+            }
+            imports = connection.execute(
+                f"""
+                SELECT source_path, module, imported_name, level, line
+                FROM imports
+                WHERE snapshot_id = ? AND source_path IN ({placeholders})
+                ORDER BY source_path, line, module, imported_name
+                """,
+                (snapshot_id, *unique_sources),
+            ).fetchall()
+
+        result = {source: [] for source in unique_sources}
+        for edge in imports:
+            target = _resolve_internal_import(edge, known_paths)
+            targets = result[edge["source_path"]]
+            if target and target not in targets and len(targets) < max_paths_per_source:
+                targets.append(target)
+        return {source: targets for source, targets in result.items() if targets}
 
     def get_references(self, snapshot_id: str, chunk_ids: list[str]) -> dict[str, EvidenceReference]:
         """重新从数据库加载引用元数据，用于检查模型是否伪造或篡改引用。"""
@@ -373,6 +456,27 @@ def _score_row(row: sqlite3.Row, query: str, terms: tuple[str, ...]) -> float:
             score += 8.0
         score += min(content.count(term), 5) * 1.5
     return score
+
+
+def _resolve_internal_import(edge: sqlite3.Row, known_paths: set[str]) -> str | None:
+    """Resolve an indexed import edge to a repository-relative Python path when possible."""
+    module_parts = [part for part in edge["module"].split(".") if part]
+    if edge["level"]:
+        source_parent = edge["source_path"].replace("\\", "/").split("/")[:-1]
+        retained = max(0, len(source_parent) - edge["level"] + 1)
+        module_parts = [*source_parent[:retained], *module_parts]
+
+    bases = [module_parts]
+    if edge["imported_name"]:
+        bases.append([*module_parts, edge["imported_name"]])
+    for parts in bases:
+        if not parts:
+            continue
+        module_path = "/".join(parts)
+        for candidate in (f"{module_path}.py", f"{module_path}/__init__.py"):
+            if candidate in known_paths:
+                return candidate
+    return None
 
 
 def _excerpt(content: str, terms: tuple[str, ...], max_characters: int = 500) -> str:

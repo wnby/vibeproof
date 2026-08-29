@@ -22,7 +22,23 @@ def test_evidence_aliases_hide_long_ids_and_restore_them_deterministically() -> 
 
     assert aliases.aliases(["chunk:sha256:first", "chunk:sha256:second"]) == ["E1", "E2"]
     assert aliases.resolve_all(["E2", "E1"]) == ["chunk:sha256:second", "chunk:sha256:first"]
+    assert aliases.resolve_all(["E1、", "、E2", "`E1`"]) == [
+        "chunk:sha256:first",
+        "chunk:sha256:second",
+        "chunk:sha256:first",
+    ]
+    assert aliases.resolve_all(["E1、E2", "[E2 / E1]"]) == [
+        "chunk:sha256:first",
+        "chunk:sha256:second",
+        "chunk:sha256:second",
+        "chunk:sha256:first",
+    ]
     assert aliases.resolve("E99") == "E99"
+    assert aliases.resolve_all(["evidence E1 and E2"]) == ["evidence E1 and E2"]
+
+
+def test_default_tutor_budget_can_reuse_full_analyst_evidence_budget() -> None:
+    assert LearningEvidencePolicy().max_evidence == 20
 
 
 def _indexed_repository(tmp_path: Path):

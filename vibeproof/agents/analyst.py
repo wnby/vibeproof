@@ -46,6 +46,19 @@ Return exactly one JSON object and no markdown. The output schema is enforced by
 claim_type, evidence_ids, and confidence. Allowed claim types are ENTRYPOINT, COMPONENT, DEPENDENCY, DATA_FLOW,
 INFRASTRUCTURE, RISK, and OTHER.
 
+One model call is exactly one tool turn. Choose only the single immediate next action. After returning one
+SEARCH_SOURCE object, stop: do not append future searches, a plan, or a FINAL_ANSWER. Never concatenate JSON objects.
+The STATE_JSON budget is authoritative. When required_action is FINAL_ANSWER or remaining_queries is zero, do not
+request another search; synthesize the best evidence-grounded final answer and list unresolved gaps instead.
+Investigate the primary application entrypoint and follow its imported internal modules and control flow before
+spending query budget on secondary CLI, harness, evaluation, or tool-server entrypoints.
+When the entrypoint exposes user-facing routes or controllers, trace one primary request through its service and
+orchestration boundaries before expanding lower-level workers, coordinators, or support modules. If a route imports
+both a service facade and a lower-level runtime, inspect the service path first and then the runtime branch.
+The navigation.internal_imports_by_source paths are deterministic next-hop candidates found in the source index.
+Prefer a new next-hop file over repeatedly searching a source path that already appears in searched_source_paths.
+A direct path query returns that file's module overview first; one focused search per path is normally sufficient.
+
 Use only short evidence IDs such as E1 that appeared in the supplied evidence, and copy them exactly. Never claim
 runtime behavior as verified from static source.
 Prefer several focused searches before FINAL_ANSWER. A citation supports an inference but does not automatically prove
@@ -217,12 +230,13 @@ class RepositoryAnalystAgent:
         observed: dict[str, EvidenceHit] = {}
         evidence_queries: dict[str, list[str]] = {}
         trace: list[AgentTraceStep] = []
-        invalid_actions = 0
+        consecutive_invalid_actions = 0
         feedback: str | None = None
         recommended_queries = _recommended_queries(manifest)
 
         for step in range(1, self.policy.max_steps + 1):
             aliases = EvidenceAliases.from_chunk_ids(observed)
+            observed_paths = list(dict.fromkeys(hit.path for hit in observed.values()))
             state = _build_state(
                 manifest=manifest,
                 recommended_queries=recommended_queries,
@@ -231,6 +245,9 @@ class RepositoryAnalystAgent:
                 evidence_queries=evidence_queries,
                 feedback=feedback,
                 aliases=aliases,
+                remaining_queries=max(0, self.policy.max_queries - len(completed_queries)),
+                remaining_turns=self.policy.max_steps - step + 1,
+                internal_imports=self.store.get_imported_paths(manifest.snapshot_id, observed_paths),
             )
             messages = [
                 ModelMessage(role="system", content=SYSTEM_PROMPT),
@@ -251,11 +268,14 @@ class RepositoryAnalystAgent:
             try:
                 action = AgentAction.model_validate_json(normalize_json_object(raw_action))
             except (StructuredOutputError, ValidationError) as exc:
-                invalid_actions += 1
+                consecutive_invalid_actions += 1
                 error = _validation_summary(exc) if isinstance(exc, ValidationError) else str(exc)
                 trace.append(AgentTraceStep(step=step, action="INVALID_ACTION", error=error))
-                feedback = f"Previous output was rejected: {error}. Return one valid action JSON object."
-                if invalid_actions >= self.policy.max_invalid_actions:
+                feedback = (
+                    f"Previous output was rejected: {error}. Return only the single immediate action as one JSON "
+                    "object; do not append future actions or a plan."
+                )
+                if consecutive_invalid_actions >= self.policy.max_invalid_actions:
                     return self._incomplete_report(
                         manifest,
                         AgentRunStatus.INVALID_ACTION,
@@ -270,7 +290,7 @@ class RepositoryAnalystAgent:
                 query = action.query.strip() if action.query else ""
                 query_error = self._query_error(query, completed_queries)
                 if query_error:
-                    invalid_actions += 1
+                    consecutive_invalid_actions += 1
                     trace.append(
                         AgentTraceStep(
                             step=step,
@@ -279,8 +299,12 @@ class RepositoryAnalystAgent:
                             error=query_error,
                         )
                     )
-                    feedback = f"Search was rejected: {query_error}. Choose a new bounded source query."
-                    if invalid_actions >= self.policy.max_invalid_actions:
+                    feedback = (
+                        f"Search was rejected: {query_error}. Return FINAL_ANSWER now using observed evidence."
+                        if len(completed_queries) >= self.policy.max_queries
+                        else f"Search was rejected: {query_error}. Choose one new bounded source query."
+                    )
+                    if consecutive_invalid_actions >= self.policy.max_invalid_actions:
                         return self._incomplete_report(
                             manifest,
                             AgentRunStatus.INVALID_ACTION,
@@ -290,7 +314,14 @@ class RepositoryAnalystAgent:
                         )
                     continue
 
-                hits = self.store.search(manifest.snapshot_id, query, limit=self.policy.search_limit)
+                # 同一文件往往会被分成多个源码块。后续检索排除已观察块，避免模型用不同措辞
+                # 反复拿到完全相同的前三条结果，把有限的工具预算浪费在原地打转上。
+                hits = self.store.search(
+                    manifest.snapshot_id,
+                    query,
+                    limit=self.policy.search_limit,
+                    exclude_chunk_ids=set(observed),
+                )
                 completed_queries.append(query)
                 returned_ids: list[str] = []
                 for hit in hits:
@@ -308,6 +339,7 @@ class RepositoryAnalystAgent:
                         message=f"returned {len(returned_ids)} evidence chunks",
                     )
                 )
+                consecutive_invalid_actions = 0
                 continue
 
             resolved_claims = [
@@ -395,10 +427,28 @@ class RepositoryAnalystAgent:
 
 
 def _recommended_queries(manifest: RepositoryManifest) -> list[str]:
-    candidates = [*manifest.entrypoints, *manifest.frameworks, *manifest.dependency_files]
+    primary_entrypoints, _ = _partition_entrypoints(manifest.entrypoints)
+    candidates = [*primary_entrypoints, *manifest.dependency_files[:1]]
     if not candidates:
         candidates = ["main", "app", "service"]
     return list(dict.fromkeys(candidates))[:8]
+
+
+def _partition_entrypoints(entrypoints: list[str]) -> tuple[list[str], list[str]]:
+    """把约定式 Web 主入口放在首位，其余脚本作为次级入口保留给后续分析。"""
+    ordered = sorted(entrypoints, key=lambda path: (_entrypoint_priority(path), path))
+    return ordered[:1], ordered[1:]
+
+
+def _entrypoint_priority(path: str) -> int:
+    filename = path.replace("\\", "/").rsplit("/", 1)[-1].lower()
+    if filename == "main.py":
+        return 0
+    if filename == "app.py":
+        return 1
+    if filename == "server.py":
+        return 2
+    return 3
 
 
 def _build_state(
@@ -409,7 +459,11 @@ def _build_state(
     evidence_queries: dict[str, list[str]],
     feedback: str | None,
     aliases: EvidenceAliases,
+    remaining_queries: int,
+    remaining_turns: int,
+    internal_imports: dict[str, list[str]],
 ) -> dict[str, object]:
+    primary_entrypoints, secondary_entrypoints = _partition_entrypoints(manifest.entrypoints)
     evidence = []
     for hit in observed.values():
         item = hit.model_dump(mode="json")
@@ -423,7 +477,8 @@ def _build_state(
             "snapshot_id": manifest.snapshot_id,
             "languages": manifest.languages,
             "frameworks": manifest.frameworks,
-            "entrypoints": manifest.entrypoints,
+            "primary_entrypoints": primary_entrypoints,
+            "secondary_entrypoints": secondary_entrypoints,
             "dependency_files": manifest.dependency_files,
             "test_files": manifest.test_files,
             "documentation_files": manifest.documentation_files,
@@ -431,6 +486,15 @@ def _build_state(
         },
         "recommended_queries": recommended_queries,
         "completed_queries": completed_queries,
+        "navigation": {
+            "searched_source_paths": list(dict.fromkeys(hit.path for hit in observed.values())),
+            "internal_imports_by_source": internal_imports,
+        },
+        "budget": {
+            "remaining_queries": remaining_queries,
+            "remaining_turns_including_current": remaining_turns,
+            "required_action": "FINAL_ANSWER" if remaining_queries == 0 else None,
+        },
         "evidence": evidence,
         "feedback": feedback,
     }

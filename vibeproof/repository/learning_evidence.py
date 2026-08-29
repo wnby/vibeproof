@@ -16,7 +16,7 @@ from vibeproof.repository.store import EvidenceStore
 class LearningEvidencePolicy:
     """限制 Tutor 可看到的查询次数和源码证据数量。"""
 
-    max_evidence: int = 12
+    max_evidence: int = 20
     search_limit: int = 2
     max_queries: int = 8
 

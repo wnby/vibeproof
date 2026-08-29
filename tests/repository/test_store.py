@@ -71,6 +71,50 @@ def test_search_supports_path_and_source_terms(tmp_path: Path) -> None:
     assert all(hit.score > 0 for hit in hits)
 
 
+def test_search_can_exclude_already_observed_chunks(tmp_path: Path) -> None:
+    store, snapshot_id = _indexed_store(tmp_path)
+    first = store.search(snapshot_id, "chat.py", limit=2)
+
+    second = store.search(
+        snapshot_id,
+        "chat.py",
+        limit=2,
+        exclude_chunk_ids={hit.chunk_id for hit in first},
+    )
+
+    assert first
+    assert second
+    assert {hit.chunk_id for hit in first}.isdisjoint(hit.chunk_id for hit in second)
+
+
+def test_explicit_path_search_stays_in_file_and_prioritizes_module_overview(tmp_path: Path) -> None:
+    store, snapshot_id = _indexed_store(tmp_path)
+
+    hits = store.search(snapshot_id, "chat.py: imports and routes", limit=3)
+
+    assert hits
+    assert {hit.path for hit in hits} == {"chat.py"}
+    assert hits[0].symbol is None
+
+
+def test_store_resolves_internal_import_paths(tmp_path: Path) -> None:
+    repository = tmp_path / "repository"
+    (repository / "app" / "services").mkdir(parents=True)
+    (repository / "app" / "main.py").write_text(
+        "from app.services.chat import ChatService\nfrom fastapi import FastAPI\n",
+        encoding="utf-8",
+    )
+    (repository / "app" / "services" / "chat.py").write_text("class ChatService: pass\n", encoding="utf-8")
+    manifest = RepositoryScanner().scan(repository)
+    indexed = PythonSourceIndexer().build(repository, manifest)
+    store = EvidenceStore(tmp_path / "imports.sqlite3")
+    store.replace_snapshot(manifest.repository_name, manifest.snapshot_id, indexed)
+
+    imports = store.get_imported_paths(manifest.snapshot_id, ["app/main.py"])
+
+    assert imports == {"app/main.py": ["app/services/chat.py"]}
+
+
 def test_search_requires_matching_snapshot(tmp_path: Path) -> None:
     store, _ = _indexed_store(tmp_path)
 

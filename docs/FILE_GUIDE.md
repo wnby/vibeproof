@@ -29,6 +29,7 @@
 - `scanner.py`：静态扫描仓库、分类文件并计算稳定快照，不执行目标代码。
 - `index.py`：使用 AST 提取 Python 符号、导入关系和带行号源码块。
 - `store.py`：通过 SQLite 保存和检索快照绑定的证据，实现 Repository 模式。
+- `evidence_aliases.py`：在模型使用的短证据句柄和数据库完整 chunk ID 之间做严格转换。
 - `learning_evidence.py`：在有限预算内为 Tutor 选择代表性学习证据。
 
 ### `llm/` 模型边界
@@ -81,7 +82,7 @@
 
 ## 其他目录
 
-- `evals/`：健康、故障和异步多组件三类固定评估场景及其显式期望。
+- `evals/`：健康、故障、异步多组件和 MindBridge 真实仓库评估场景及其显式期望。
 - `examples/`：脱敏的扫描、接管、学习、运行和真实模型测试摘要。
 - `docs/`：MVP、架构、威胁模型、评估指南和每日开发记录。
 - `.github/workflows/ci.yml`：在 GitHub Actions 中运行 Ruff 和全部 pytest。

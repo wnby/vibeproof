@@ -8,7 +8,13 @@ import json
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from vibeproof.agents.analyst import AnalystPolicy, CitationReviewer, RepositoryAnalystAgent
+from vibeproof.agents.analyst import (
+    AnalystPolicy,
+    CitationReviewer,
+    RepositoryAnalystAgent,
+    _partition_entrypoints,
+    _recommended_queries,
+)
 from vibeproof.core.models import AgentRunStatus, ClaimDraft, ClaimStatus, VerificationStatus
 from vibeproof.llm.client import ModelClientError, ModelMessage
 from vibeproof.reports.architecture import render_architecture_report
@@ -83,6 +89,22 @@ def _final_action(chunk_id: str, claim: str = "run_demo delegates work to DemoSe
     )
 
 
+def test_recommendations_prioritize_conventional_main_entrypoint(tmp_path: Path) -> None:
+    _, manifest, _ = _repository(tmp_path)
+    manifest = manifest.model_copy(
+        update={
+            "entrypoints": ["tools/runner.py", "app/main.py", "mcp/server.py"],
+            "dependency_files": [],
+        }
+    )
+
+    primary, secondary = _partition_entrypoints(manifest.entrypoints)
+
+    assert primary == ["app/main.py"]
+    assert secondary == ["mcp/server.py", "tools/runner.py"]
+    assert _recommended_queries(manifest) == ["app/main.py"]
+
+
 def test_agent_searches_then_accepts_observed_citation(tmp_path: Path) -> None:
     _, manifest, store = _repository(tmp_path)
     hit = store.search(manifest.snapshot_id, "run_demo", limit=1)[0]
@@ -102,6 +124,8 @@ def test_agent_searches_then_accepts_observed_citation(tmp_path: Path) -> None:
     assert report.evidence[0].chunk_id == hit.chunk_id
     assert [step.action for step in report.trace] == ["SEARCH_SOURCE", "FINAL_ANSWER"]
     assert "untrusted data" in model.received[0][0].content
+    assert "one tool turn" in model.received[0][0].content
+    assert "trace one primary request" in model.received[0][0].content
 
 
 def test_unobserved_existing_chunk_is_rejected(tmp_path: Path) -> None:
@@ -174,6 +198,29 @@ def test_invalid_or_unknown_actions_stop_safely(tmp_path: Path) -> None:
     assert all("DELETE_FILES" not in (step.message or "") for step in report.trace)
 
 
+def test_successful_search_resets_consecutive_invalid_action_count(tmp_path: Path) -> None:
+    _, manifest, store = _repository(tmp_path)
+    hit = store.search(manifest.snapshot_id, "run_demo", limit=1)[0]
+    model = ScriptedModel(
+        responses=[
+            "not-json",
+            json.dumps({"action": "SEARCH_SOURCE", "query": "run_demo"}),
+            "still-not-json",
+            _final_action(hit.chunk_id),
+        ]
+    )
+
+    report = RepositoryAnalystAgent(store, model).run(manifest)
+
+    assert report.run_status == AgentRunStatus.COMPLETED
+    assert [step.action for step in report.trace] == [
+        "INVALID_ACTION",
+        "SEARCH_SOURCE",
+        "INVALID_ACTION",
+        "FINAL_ANSWER",
+    ]
+
+
 def test_duplicate_query_is_rejected(tmp_path: Path) -> None:
     _, manifest, store = _repository(tmp_path)
     search = json.dumps({"action": "SEARCH_SOURCE", "query": "run_demo"})
@@ -184,6 +231,23 @@ def test_duplicate_query_is_rejected(tmp_path: Path) -> None:
 
     assert report.run_status == AgentRunStatus.INVALID_ACTION
     assert report.trace[-1].error == "duplicate query"
+
+
+def test_differently_worded_searches_do_not_return_observed_chunks(tmp_path: Path) -> None:
+    _, manifest, store = _repository(tmp_path)
+    model = ScriptedModel(
+        responses=[
+            json.dumps({"action": "SEARCH_SOURCE", "query": "main.py"}),
+            json.dumps({"action": "SEARCH_SOURCE", "query": "main.py imports and routes"}),
+        ]
+    )
+
+    report = RepositoryAnalystAgent(store, model, AnalystPolicy(max_steps=2)).run(manifest)
+
+    first_ids = set(report.trace[0].returned_evidence_ids)
+    second_ids = set(report.trace[1].returned_evidence_ids)
+    assert first_ids
+    assert first_ids.isdisjoint(second_ids)
 
 
 def test_agent_returns_max_steps_report(tmp_path: Path) -> None:
@@ -199,6 +263,32 @@ def test_agent_returns_max_steps_report(tmp_path: Path) -> None:
 
     assert report.run_status == AgentRunStatus.MAX_STEPS
     assert len(report.trace) == 2
+
+
+def test_state_requires_final_answer_after_query_budget_is_used(tmp_path: Path) -> None:
+    _, manifest, store = _repository(tmp_path)
+    hit = store.search(manifest.snapshot_id, "run_demo", limit=1)[0]
+    model = ScriptedModel(
+        responses=[
+            json.dumps({"action": "SEARCH_SOURCE", "query": "run_demo"}),
+            _final_action(hit.chunk_id),
+        ]
+    )
+
+    report = RepositoryAnalystAgent(
+        store,
+        model,
+        AnalystPolicy(max_steps=2, max_queries=1),
+    ).run(manifest)
+
+    second_state = json.loads(model.received[1][-1].content.split("STATE_JSON:\n", 1)[1])
+    assert report.run_status == AgentRunStatus.COMPLETED
+    assert second_state["navigation"]["searched_source_paths"] == ["main.py"]
+    assert second_state["budget"] == {
+        "remaining_queries": 0,
+        "remaining_turns_including_current": 1,
+        "required_action": "FINAL_ANSWER",
+    }
 
 
 def test_agent_converts_provider_failure_to_auditable_report(tmp_path: Path) -> None:

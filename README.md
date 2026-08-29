@@ -48,6 +48,7 @@ Implemented:
 - task-specific offline analyst, tutor, and structure-only reviewer models for reproducible demos without a paid API
 - deterministic Agent Eval metrics for workflow status, citation integrity, learning coverage, and runtime expectations
 - healthy, intentionally broken, and async multi-component evaluation fixtures
+- a passing real-model MindBridge benchmark with 4/4 critical-path coverage and source-grounded learning
 - Codex-inspired task activity, result tabs, runtime terminal, and source-evidence inspector
 
 Not implemented yet:

@@ -6,8 +6,12 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import Iterable
 from dataclasses import dataclass
+
+_ALIAS_TOKEN = re.compile(r"(?<![A-Za-z0-9_])E\d+(?![A-Za-z0-9_])")
+_ALIAS_SEPARATORS = " `*_[](){}<>.,;:，。；：、/\\|\t\r\n"
 
 
 @dataclass(frozen=True)
@@ -27,18 +31,37 @@ class EvidenceAliases:
         return self.chunk_id_to_alias.get(chunk_id, chunk_id)
 
     def resolve(self, reference: str) -> str:
-        """把模型句柄恢复为内部 ID；未知引用保持原值以保留审计信息。"""
-        return self.alias_to_chunk_id.get(reference, reference)
+        """把模型句柄恢复为内部 ID；只容忍句柄外围的展示标点，未知引用仍原样保留。"""
+        aliases = _parse_alias_list(reference)
+        if len(aliases) != 1:
+            return reference
+        return self.alias_to_chunk_id.get(aliases[0], reference)
 
     def aliases(self, chunk_ids: Iterable[str]) -> list[str]:
         """批量转换内部 ID。"""
         return [self.alias(chunk_id) for chunk_id in chunk_ids]
 
     def resolve_all(self, references: Iterable[str]) -> list[str]:
-        """批量恢复模型引用。"""
-        return [self.resolve(reference) for reference in references]
+        """批量恢复模型引用，并拆开仅由安全分隔符连接的多个短句柄。"""
+        resolved: list[str] = []
+        for reference in references:
+            aliases = _parse_alias_list(reference)
+            if not aliases:
+                resolved.append(reference)
+                continue
+            resolved.extend(self.alias_to_chunk_id.get(alias, alias) for alias in aliases)
+        return resolved
 
     @property
     def chunk_id_to_alias(self) -> dict[str, str]:
         """返回反向映射，避免调用方各自重建规则。"""
         return {chunk_id: alias for alias, chunk_id in self.alias_to_chunk_id.items()}
+
+
+def _parse_alias_list(reference: str) -> list[str]:
+    """只解析由短别名和展示分隔符组成的字符串，避免从普通文本中宽松提取引用。"""
+    aliases = _ALIAS_TOKEN.findall(reference)
+    if not aliases:
+        return []
+    remainder = _ALIAS_TOKEN.sub("", reference)
+    return aliases if not remainder.strip(_ALIAS_SEPARATORS) else []
