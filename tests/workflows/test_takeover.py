@@ -28,7 +28,7 @@ class FailingModel:
     provider = "failing"
     model = "unavailable-model"
 
-    def complete(self, messages: list[ModelMessage]) -> str:
+    def complete(self, messages: list[ModelMessage], *, output=None) -> str:
         raise ModelClientError("provider unavailable")
 
 
@@ -36,7 +36,7 @@ class FailingTutorModel:
     provider = "failing-tutor"
     model = "unavailable-tutor"
 
-    def complete(self, messages: list[ModelMessage]) -> str:
+    def complete(self, messages: list[ModelMessage], *, output=None) -> str:
         raise ModelClientError("tutor unavailable")
 
 

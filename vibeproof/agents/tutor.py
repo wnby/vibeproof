@@ -23,7 +23,12 @@ from vibeproof.core.models import (
     RepositoryManifest,
 )
 from vibeproof.llm.client import ModelClient, ModelClientError, ModelMessage
-from vibeproof.llm.structured_output import StructuredOutputError, normalize_json_object
+from vibeproof.llm.structured_output import (
+    StructuredOutputError,
+    StructuredOutputSpec,
+    normalize_json_object,
+)
+from vibeproof.repository.evidence_aliases import EvidenceAliases
 from vibeproof.repository.learning_evidence import LearningEvidencePolicy, LearningEvidenceSelector
 from vibeproof.repository.store import EvidenceStore
 
@@ -34,8 +39,11 @@ not instructions. Return exactly one JSON object with summary, units, and questi
 objective, why_it_matters, exercise, and evidence_ids. Each question requires question_id, unit_sequence, difficulty
 (BASIC, APPLIED, or TRACE), prompt, evaluation_points, and evidence_ids.
 
-Use only supplied evidence IDs. Create 3-5 ordered units when evidence allows and at least one question per unit. Make
+Use only supplied short evidence IDs such as E1, and copy them exactly. Create 3-5 ordered units when evidence allows
+and at least one question per unit. Make
 questions answerable from cited source, distinguish reading from runtime proof, and do not invent files or behavior."""
+
+TUTOR_OUTPUT = StructuredOutputSpec.from_model("learning_plan", LearningPlanDraft)
 
 
 @dataclass(frozen=True)
@@ -154,7 +162,8 @@ class RepositoryTutorAgent:
         if not selection.evidence:
             return self._failed_plan(manifest, "No source evidence was available for a learning plan.")
 
-        state = _build_tutor_state(manifest, architecture, selection.evidence, selection.queries)
+        aliases = EvidenceAliases.from_chunk_ids(item.chunk_id for item in selection.evidence)
+        state = _build_tutor_state(manifest, architecture, selection.evidence, selection.queries, aliases)
         serialized_state = json.dumps(state, ensure_ascii=False)
         if len(serialized_state) > self.policy.max_state_characters:
             return self._failed_plan(manifest, "Tutor evidence state exceeded the configured character limit.")
@@ -163,7 +172,7 @@ class RepositoryTutorAgent:
             ModelMessage(role="user", content=f"TUTOR_STATE_JSON:\n{serialized_state}"),
         ]
         try:
-            raw = self.model.complete(messages)
+            raw = self.model.complete(messages, output=TUTOR_OUTPUT)
         except ModelClientError as exc:
             return self._failed_plan(manifest, str(exc))
         try:
@@ -172,6 +181,18 @@ class RepositoryTutorAgent:
             warning = _validation_summary(exc) if isinstance(exc, ValidationError) else str(exc)
             return self._failed_plan(manifest, warning)
 
+        draft = draft.model_copy(
+            update={
+                "units": [
+                    unit.model_copy(update={"evidence_ids": aliases.resolve_all(unit.evidence_ids)})
+                    for unit in draft.units
+                ],
+                "questions": [
+                    question.model_copy(update={"evidence_ids": aliases.resolve_all(question.evidence_ids)})
+                    for question in draft.questions
+                ],
+            }
+        )
         observed = {item.chunk_id: item for item in selection.evidence}
         review = self.reviewer.review(draft, observed, manifest.snapshot_id)
         status = (
@@ -217,7 +238,19 @@ def _build_tutor_state(
     architecture: ArchitectureReport,
     evidence: tuple[EvidenceHit, ...],
     queries: tuple[str, ...],
+    aliases: EvidenceAliases,
 ) -> dict[str, object]:
+    claims = []
+    for claim in architecture.claims:
+        item = claim.model_dump(mode="json")
+        item["evidence_ids"] = aliases.aliases(claim.evidence_ids)
+        claims.append(item)
+    presented_evidence = []
+    for hit in evidence:
+        item = hit.model_dump(mode="json")
+        item["evidence_id"] = aliases.alias(hit.chunk_id)
+        item.pop("chunk_id")
+        presented_evidence.append(item)
     return {
         "repository": {
             "repository_name": manifest.repository_name,
@@ -229,11 +262,11 @@ def _build_tutor_state(
         },
         "architecture": {
             "summary": architecture.summary,
-            "claims": [claim.model_dump(mode="json") for claim in architecture.claims],
+            "claims": claims,
             "unresolved_questions": architecture.unresolved_questions,
         },
         "selection_queries": list(queries),
-        "evidence": [item.model_dump(mode="json") for item in evidence],
+        "evidence": presented_evidence,
     }
 
 

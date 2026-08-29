@@ -33,7 +33,7 @@ class ScriptedReviewModel:
         self.invented_evidence = invented_evidence
         self.calls = 0
 
-    def complete(self, messages: list[ModelMessage]) -> str:
+    def complete(self, messages: list[ModelMessage], *, output=None) -> str:
         self.calls += 1
         state = json.loads(messages[-1].content.split("ANSWER_REVIEW_STATE_JSON:\n", 1)[1])
         question = state["question"]

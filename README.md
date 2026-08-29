@@ -32,7 +32,9 @@ Implemented:
 - citation integrity review against the current SQLite snapshot
 - auditable Agent traces and JSON/Markdown architecture reports
 - offline mock, OpenAI-compatible, and Ollama model providers
-- bounded retry for transient model transport failures and JSON response mode for OpenAI-compatible Agents
+- bounded retry for transient model transport failures and Pydantic-derived strict JSON Schema output
+- short evidence aliases that keep long internal chunk hashes out of model-authored responses
+- a verified OpenAI-compatible real-model takeover path covering analysis, learning, and runtime evidence
 - plan-first runtime verification with fixed `pytest` and `pytest --collect-only` checks
 - target-interpreter discovery, timeouts, bounded output, environment scrubbing, and before/after snapshots
 - JSON and Markdown runtime reports that preserve both passing and failing evidence
@@ -50,7 +52,6 @@ Implemented:
 
 Not implemented yet:
 
-- LLM-generated architecture analysis
 - persistent learning progress across multiple attempts
 - arbitrary command execution or code modification
 - GitHub App integration
@@ -266,6 +267,7 @@ validated; it does not claim that model-authored semantics were deterministicall
 5. ~~Source-grounded learning plans and quiz generation~~
 6. ~~Evidence-backed answer review and learning progress~~
 7. ~~Deterministic Agent Eval and repeatable failure fixtures~~
+8. ~~Strict real-model structured output and end-to-end takeover validation~~
 
 See [docs/MVP.md](docs/MVP.md), [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs/DAY2.md](docs/DAY2.md),
 [docs/DAY3.md](docs/DAY3.md), [docs/DAY4.md](docs/DAY4.md), [docs/DAY5.md](docs/DAY5.md), and

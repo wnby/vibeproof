@@ -7,10 +7,38 @@
 from __future__ import annotations
 
 import json
+from copy import deepcopy
+from dataclasses import dataclass
+
+from pydantic import BaseModel
 
 
 class StructuredOutputError(ValueError):
     """模型文本无法唯一解析为一个 JSON 对象。"""
+
+
+@dataclass(frozen=True)
+class StructuredOutputSpec:
+    """由 Pydantic 模型派生的唯一输出契约，供各模型 Provider 转换为原生约束。"""
+
+    name: str
+    schema: dict[str, object]
+
+    @classmethod
+    def from_model(cls, name: str, model: type[BaseModel]) -> StructuredOutputSpec:
+        """生成 OpenAI strict 模式可接受的 schema，并让所有对象字段都显式出现。"""
+        if not name or not name.replace("_", "").isalnum():
+            raise ValueError("structured output name must contain only letters, numbers, and underscores")
+        schema = deepcopy(model.model_json_schema())
+        _make_schema_strict(schema)
+        return cls(name=name, schema=schema)
+
+    def openai_response_format(self) -> dict[str, object]:
+        """转换成 Chat Completions 的严格 ``response_format``。"""
+        return {
+            "type": "json_schema",
+            "json_schema": {"name": self.name, "strict": True, "schema": self.schema},
+        }
 
 
 def normalize_json_object(raw: str) -> str:
@@ -42,3 +70,20 @@ def normalize_json_object(raw: str) -> str:
     if trailing:
         raise StructuredOutputError("model output contained non-empty content after the JSON object")
     return json.dumps(value, ensure_ascii=False)
+
+
+def _make_schema_strict(node: object) -> None:
+    """递归满足 strict JSON Schema：对象禁止额外字段，且声明全部属性。"""
+    if isinstance(node, list):
+        for item in node:
+            _make_schema_strict(item)
+        return
+    if not isinstance(node, dict):
+        return
+    node.pop("default", None)
+    properties = node.get("properties")
+    if isinstance(properties, dict):
+        node["additionalProperties"] = False
+        node["required"] = list(properties)
+    for value in node.values():
+        _make_schema_strict(value)

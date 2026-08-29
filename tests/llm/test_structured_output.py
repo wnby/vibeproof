@@ -8,7 +8,23 @@ import json
 
 import pytest
 
-from vibeproof.llm.structured_output import StructuredOutputError, normalize_json_object
+from vibeproof.core.models import AgentAction
+from vibeproof.llm.structured_output import (
+    StructuredOutputError,
+    StructuredOutputSpec,
+    normalize_json_object,
+)
+
+
+def test_structured_output_spec_derives_strict_schema_from_pydantic_model() -> None:
+    spec = StructuredOutputSpec.from_model("agent_action", AgentAction)
+
+    assert spec.schema["required"] == list(spec.schema["properties"])
+    assert spec.schema["additionalProperties"] is False
+    claim_schema = spec.schema["$defs"]["ClaimDraft"]
+    assert claim_schema["required"] == list(claim_schema["properties"])
+    assert "default" not in claim_schema["properties"]["confidence"]
+    assert spec.openai_response_format()["json_schema"]["strict"] is True
 
 
 @pytest.mark.parametrize(

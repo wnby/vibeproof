@@ -24,6 +24,7 @@ from vibeproof.config import (
     ConfigurationError,
     Settings,
 )
+from vibeproof.llm.structured_output import StructuredOutputSpec
 
 
 class ModelClientError(RuntimeError):
@@ -48,7 +49,12 @@ class ModelClient(Protocol):
     provider: str
     model: str
 
-    def complete(self, messages: list[ModelMessage]) -> str:
+    def complete(
+        self,
+        messages: list[ModelMessage],
+        *,
+        output: StructuredOutputSpec | None = None,
+    ) -> str:
         """发送完整消息列表，并返回未经业务解析的模型文本。"""
         ...
 
@@ -72,11 +78,16 @@ class RetryingModelClient:
         self.max_attempts = max_attempts
         self.retry_delay_seconds = retry_delay_seconds
 
-    def complete(self, messages: list[ModelMessage]) -> str:
+    def complete(
+        self,
+        messages: list[ModelMessage],
+        *,
+        output: StructuredOutputSpec | None = None,
+    ) -> str:
         """委托真实客户端，并在限定次数内重试 ``TransientModelError``。"""
         for attempt in range(1, self.max_attempts + 1):
             try:
-                return self.client.complete(messages)
+                return self.client.complete(messages, output=output)
             except TransientModelError:
                 if attempt == self.max_attempts:
                     raise
@@ -91,7 +102,12 @@ class MockAnalystModelClient:
     provider = "mock"
     model = "deterministic-analyst-v1"
 
-    def complete(self, messages: list[ModelMessage]) -> str:
+    def complete(
+        self,
+        messages: list[ModelMessage],
+        *,
+        output: StructuredOutputSpec | None = None,
+    ) -> str:
         """先依次请求推荐查询，再从已返回证据中组成确定性结论。"""
         state = _extract_state(messages)
         completed = set(state.get("completed_queries", []))
@@ -106,7 +122,7 @@ class MockAnalystModelClient:
         claims = []
         seen_chunks: set[str] = set()
         for item in evidence:
-            chunk_id = item.get("chunk_id")
+            chunk_id = item.get("evidence_id") or item.get("chunk_id")
             if not chunk_id or chunk_id in seen_chunks:
                 continue
             seen_chunks.add(chunk_id)
@@ -151,7 +167,12 @@ class MockTutorModelClient:
     provider = "mock"
     model = "deterministic-tutor-v1"
 
-    def complete(self, messages: list[ModelMessage]) -> str:
+    def complete(
+        self,
+        messages: list[ModelMessage],
+        *,
+        output: StructuredOutputSpec | None = None,
+    ) -> str:
         """根据证据列表生成可重复的学习计划，供工作流和测试使用。"""
         state = _extract_tutor_state(messages)
         evidence = state.get("evidence", [])
@@ -166,7 +187,7 @@ class MockTutorModelClient:
             for item in evidence:
                 if not isinstance(item, dict):
                     continue
-                chunk_id = item.get("chunk_id")
+                chunk_id = item.get("evidence_id") or item.get("chunk_id")
                 path = str(item.get("path", "unknown"))
                 if not isinstance(chunk_id, str) or not chunk_id or path in seen_paths:
                     continue
@@ -214,7 +235,12 @@ class MockAnswerReviewModelClient:
     provider = "mock"
     model = "structure-only-reviewer-v1"
 
-    def complete(self, messages: list[ModelMessage]) -> str:
+    def complete(
+        self,
+        messages: list[ModelMessage],
+        *,
+        output: StructuredOutputSpec | None = None,
+    ) -> str:
         """返回不带语义分数的结构化结果，明确要求真实模型才能评分。"""
         state = _extract_review_state(messages)
         question = state.get("question", {})
@@ -243,7 +269,7 @@ class OpenAICompatibleModelClient:
         base_url: str,
         api_key: str | None = None,
         timeout_seconds: float = 180.0,
-        stream: bool = True,
+        stream: bool = False,
     ):
         if not model.strip():
             raise ConfigurationError("a model name is required for openai-compatible provider")
@@ -255,14 +281,21 @@ class OpenAICompatibleModelClient:
         self.timeout_seconds = timeout_seconds
         self.stream = stream
 
-    def complete(self, messages: list[ModelMessage]) -> str:
-        """调用兼容端点；流式响应在传输层拼接完成后再交给 Agent。"""
+    def complete(
+        self,
+        messages: list[ModelMessage],
+        *,
+        output: StructuredOutputSpec | None = None,
+    ) -> str:
+        """调用兼容端点，并在传输层得到一个完整的结构化模型响应。"""
         payload = {
             "model": self.model,
             "messages": [{"role": message.role, "content": message.content} for message in messages],
             "temperature": 0,
             "stream": self.stream,
-            "response_format": {"type": "json_object"},
+            "response_format": (
+                output.openai_response_format() if output is not None else {"type": "json_object"}
+            ),
         }
         headers = {
             "Content-Type": "application/json",
@@ -306,13 +339,18 @@ class OllamaModelClient:
         self.base_url = base_url.rstrip("/")
         self.timeout_seconds = timeout_seconds
 
-    def complete(self, messages: list[ModelMessage]) -> str:
+    def complete(
+        self,
+        messages: list[ModelMessage],
+        *,
+        output: StructuredOutputSpec | None = None,
+    ) -> str:
         """请求 Ollama 的非流式 JSON 模式并返回消息正文。"""
         payload = {
             "model": self.model,
             "messages": [{"role": message.role, "content": message.content} for message in messages],
             "stream": False,
-            "format": "json",
+            "format": output.schema if output is not None else "json",
             "options": {"temperature": 0},
         }
         response = _post_json(
@@ -433,8 +471,16 @@ def _post_openai_sse(
                     break
                 try:
                     event = json.loads(data)
-                    delta = event["choices"][0]["delta"]
-                except (json.JSONDecodeError, KeyError, IndexError, TypeError) as exc:
+                    choices = event["choices"]
+                except (json.JSONDecodeError, KeyError, TypeError) as exc:
+                    raise ModelClientError("model stream contained an invalid chat-completions event") from exc
+                # 一些 OpenAI-compatible 服务会在正文结束后发送只有 usage、没有候选项的统计事件。
+                # 它不属于模型正文，忽略后继续等待 [DONE] 即可。
+                if choices == [] and isinstance(event.get("usage"), dict):
+                    continue
+                try:
+                    delta = choices[0]["delta"]
+                except (IndexError, KeyError, TypeError) as exc:
                     raise ModelClientError("model stream contained an invalid chat-completions event") from exc
                 content = delta.get("content") if isinstance(delta, dict) else None
                 if isinstance(content, str):

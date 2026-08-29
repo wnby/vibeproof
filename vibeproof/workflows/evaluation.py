@@ -25,6 +25,7 @@ from vibeproof.core.models import (
     TakeoverReport,
 )
 from vibeproof.llm.client import ModelClient, ModelMessage
+from vibeproof.llm.structured_output import StructuredOutputSpec
 
 
 class EvaluationCaseError(ValueError):
@@ -50,12 +51,17 @@ class ObservedModelClient:
         self.failures = 0
         self.duration_ms = 0
 
-    def complete(self, messages: list[ModelMessage]) -> str:
+    def complete(
+        self,
+        messages: list[ModelMessage],
+        *,
+        output: StructuredOutputSpec | None = None,
+    ) -> str:
         """转发一次模型调用，并确保成功和失败都计入观测数据。"""
         self.calls += 1
         started = monotonic()
         try:
-            return self.client.complete(messages)
+            return self.client.complete(messages, output=output)
         except Exception:
             self.failures += 1
             raise

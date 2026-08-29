@@ -39,7 +39,7 @@ class ScriptedModel:
     model: str = "scripted-v1"
     received: list[list[ModelMessage]] = field(default_factory=list)
 
-    def complete(self, messages: list[ModelMessage]) -> str:
+    def complete(self, messages: list[ModelMessage], *, output=None) -> str:
         self.received.append(messages)
         if not self.responses:
             raise ModelClientError("no scripted response")
@@ -50,7 +50,7 @@ class FailingModel:
     provider = "failing"
     model = "failing-v1"
 
-    def complete(self, messages: list[ModelMessage]) -> str:
+    def complete(self, messages: list[ModelMessage], *, output=None) -> str:
         raise ModelClientError("provider unavailable")
 
 

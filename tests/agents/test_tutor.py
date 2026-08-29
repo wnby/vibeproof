@@ -29,7 +29,7 @@ class InvalidTutorModel:
     provider = "invalid"
     model = "invalid-tutor"
 
-    def complete(self, messages: list[ModelMessage]) -> str:
+    def complete(self, messages: list[ModelMessage], *, output=None) -> str:
         return "not-json"
 
 

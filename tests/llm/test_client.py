@@ -9,6 +9,7 @@ import json
 import pytest
 
 from vibeproof.config import ConfigurationError
+from vibeproof.core.models import AgentAction
 from vibeproof.llm.client import (
     MockAnalystModelClient,
     MockAnswerReviewModelClient,
@@ -21,6 +22,7 @@ from vibeproof.llm.client import (
     TransientModelError,
     create_model_client,
 )
+from vibeproof.llm.structured_output import StructuredOutputSpec
 
 
 def _state_message(state: dict[str, object]) -> list[ModelMessage]:
@@ -165,12 +167,18 @@ def test_openai_compatible_client_assembles_streamed_content(monkeypatch) -> Non
         return '{"action":"FINAL_ANSWER"}'
 
     monkeypatch.setattr("vibeproof.llm.client._post_openai_sse", fake_stream)
-    client = OpenAICompatibleModelClient(model="test-model", base_url="https://models.example/v1")
+    client = OpenAICompatibleModelClient(
+        model="test-model",
+        base_url="https://models.example/v1",
+        stream=True,
+    )
+    output = StructuredOutputSpec.from_model("agent_action", AgentAction)
 
-    content = client.complete([ModelMessage(role="user", content="hello")])
+    content = client.complete([ModelMessage(role="user", content="hello")], output=output)
 
     assert content == '{"action":"FINAL_ANSWER"}'
     assert captured["payload"]["stream"] is True
+    assert captured["payload"]["response_format"] == output.openai_response_format()
     assert captured["url"] == "https://models.example/v1/chat/completions"
 
 
@@ -187,12 +195,17 @@ def test_openai_sse_parser_joins_delta_content(monkeypatch) -> None:
                 [
                     b'data: {"choices":[{"delta":{"content":"{\\"ok\\":"}}]}\n',
                     b'data: {"choices":[{"delta":{"content":"true}"}}]}\n',
+                    b'data: {"choices":[],"usage":{"prompt_tokens":8,"completion_tokens":3}}\n',
                     b"data: [DONE]\n",
                 ]
             )
 
     monkeypatch.setattr("vibeproof.llm.client.urlopen", lambda request, timeout: FakeResponse())
-    client = OpenAICompatibleModelClient(model="test-model", base_url="https://models.example/v1")
+    client = OpenAICompatibleModelClient(
+        model="test-model",
+        base_url="https://models.example/v1",
+        stream=True,
+    )
 
     assert client.complete([ModelMessage(role="user", content="hello")]) == '{"ok":true}'
 
@@ -205,7 +218,7 @@ def test_retrying_client_retries_one_transient_failure() -> None:
         def __init__(self):
             self.calls = 0
 
-        def complete(self, messages):
+        def complete(self, messages, *, output=None):
             self.calls += 1
             if self.calls == 1:
                 raise TransientModelError("temporary failure")
@@ -226,7 +239,7 @@ def test_retrying_client_does_not_retry_permanent_errors() -> None:
         def __init__(self):
             self.calls = 0
 
-        def complete(self, messages):
+        def complete(self, messages, *, output=None):
             self.calls += 1
             raise ModelClientError("invalid response")
 
@@ -246,7 +259,7 @@ def test_retrying_client_stops_after_two_transient_failures() -> None:
         def __init__(self):
             self.calls = 0
 
-        def complete(self, messages):
+        def complete(self, messages, *, output=None):
             self.calls += 1
             raise TransientModelError("still offline")
 

@@ -10,10 +10,19 @@ from pathlib import Path
 
 from vibeproof.agents.analyst import RepositoryAnalystAgent
 from vibeproof.llm.client import MockAnalystModelClient
+from vibeproof.repository.evidence_aliases import EvidenceAliases
 from vibeproof.repository.index import PythonSourceIndexer
 from vibeproof.repository.learning_evidence import LearningEvidencePolicy, LearningEvidenceSelector
 from vibeproof.repository.scanner import RepositoryScanner
 from vibeproof.repository.store import EvidenceStore
+
+
+def test_evidence_aliases_hide_long_ids_and_restore_them_deterministically() -> None:
+    aliases = EvidenceAliases.from_chunk_ids(["chunk:sha256:first", "chunk:sha256:second"])
+
+    assert aliases.aliases(["chunk:sha256:first", "chunk:sha256:second"]) == ["E1", "E2"]
+    assert aliases.resolve_all(["E2", "E1"]) == ["chunk:sha256:second", "chunk:sha256:first"]
+    assert aliases.resolve("E99") == "E99"
 
 
 def _indexed_repository(tmp_path: Path):
