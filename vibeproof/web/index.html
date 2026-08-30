@@ -62,6 +62,14 @@
             </div>
 
             <form class="takeover-form" id="takeover-form">
+              <div class="server-config loading" id="server-config">
+                <span class="server-config-dot" aria-hidden="true"></span>
+                <div>
+                  <strong id="server-config-title">正在读取服务端配置</strong>
+                  <small id="server-config-detail">模型密钥不会发送到浏览器。</small>
+                </div>
+              </div>
+
               <label for="repository-path">仓库路径</label>
               <div class="path-input-row">
                 <span class="path-prefix">工作区 /</span>
@@ -88,6 +96,13 @@
                 <div class="field">
                   <label for="model">指定模型</label>
                   <input id="model" name="model" type="text" placeholder="默认读取环境配置" />
+                </div>
+                <div class="field">
+                  <label for="analysis-depth">分析深度</label>
+                  <select id="analysis-depth" name="analysisDepth">
+                    <option value="deep">深度接管 · 真实项目</option>
+                    <option value="standard">标准接管 · 小型仓库</option>
+                  </select>
                 </div>
               </div>
 

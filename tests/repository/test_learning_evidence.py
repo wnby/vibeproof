@@ -33,6 +33,12 @@ def test_evidence_aliases_hide_long_ids_and_restore_them_deterministically() -> 
         "chunk:sha256:second",
         "chunk:sha256:first",
     ]
+    assert aliases.resolve_all(["E1】【、】【E2", "《E2》「E1」"]) == [
+        "chunk:sha256:first",
+        "chunk:sha256:second",
+        "chunk:sha256:second",
+        "chunk:sha256:first",
+    ]
     assert aliases.resolve("E99") == "E99"
     assert aliases.resolve_all(["evidence E1 and E2"]) == ["evidence E1 and E2"]
 

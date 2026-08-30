@@ -71,7 +71,7 @@
 
 - `index.html`：页面结构。
 - `styles.css`：白色主题与布局。
-- `app.js`：调用 Takeover API、消费报告并渲染 Agent 活动和证据。
+- `app.js`：读取服务端模型就绪状态，调用 Takeover API，并渲染 Agent 活动、检索轨迹和证据。
 - `favicon.svg`：站点图标。
 
 ## `tests/` 测试结构

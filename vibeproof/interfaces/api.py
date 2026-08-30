@@ -16,6 +16,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field
 
 from vibeproof import __version__
+from vibeproof.agents.analyst import AnalystPolicy
 from vibeproof.config import ConfigurationError, Settings
 from vibeproof.core.models import RepositoryManifest, RuntimeCheck, TakeoverReport
 from vibeproof.llm.client import create_model_client
@@ -46,8 +47,21 @@ class TakeoverRequest(ScanRequest):
 
     provider: Literal["mock", "openai-compatible", "ollama"] = "mock"
     model: str | None = Field(default=None, min_length=1, max_length=200)
+    analysis_depth: Literal["standard", "deep"] = Field(default="deep", alias="analysisDepth")
     execute_runtime: bool = Field(default=False, alias="executeRuntime")
     runtime_check: Literal["pytest", "pytest-collect"] = Field(default="pytest", alias="runtimeCheck")
+
+
+class WebConfiguration(ApiModel):
+    """浏览器安全可见的服务端配置摘要；只返回是否配置密钥，不返回密钥或工作区绝对路径。"""
+
+    workspace_configured: bool = Field(alias="workspaceConfigured")
+    workspace_name: str | None = Field(alias="workspaceName")
+    provider: str
+    model: str | None
+    endpoint_configured: bool = Field(alias="endpointConfigured")
+    api_key_configured: bool = Field(alias="apiKeyConfigured")
+    default_analysis_depth: Literal["deep"] = Field(default="deep", alias="defaultAnalysisDepth")
 
 
 class SourceExcerptRequest(ScanRequest):
@@ -77,6 +91,21 @@ def web_app() -> FileResponse:
 def health() -> dict[str, str]:
     """供本地启动和部署检查使用的轻量健康接口。"""
     return {"status": "ok", "service": "vibeproof", "version": __version__}
+
+
+@app.get("/api/v1/config", response_model=WebConfiguration)
+def web_configuration() -> WebConfiguration:
+    """告诉页面真实模型是否就绪，同时避免暴露密钥、接口地址和本机绝对目录。"""
+    settings = Settings.from_env()
+    return WebConfiguration(
+        workspaceConfigured=settings.workspace_root is not None,
+        workspaceName=settings.workspace_root.name if settings.workspace_root else None,
+        provider=settings.ai_provider,
+        model=settings.ai_model or None,
+        endpointConfigured=bool(settings.ai_base_url),
+        apiKeyConfigured=bool(settings.ai_api_key),
+        defaultAnalysisDepth="deep",
+    )
 
 
 @app.post("/api/v1/repositories/scan", response_model=RepositoryManifest)
@@ -117,6 +146,7 @@ def takeover_repository(request: TakeoverRequest) -> TakeoverReport:
             model=analyst_model,
             tutor_model=tutor_model,
             policy=TakeoverPolicy(
+                analyst_policy=_analyst_policy(request.analysis_depth),
                 runtime_check=runtime_check,
                 execute_runtime=request.execute_runtime,
             ),
@@ -178,3 +208,10 @@ def _resolve_repository(relative_path: str) -> Path:
     if not target.is_dir():
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="repository path is not a directory")
     return target
+
+
+def _analyst_policy(depth: Literal["standard", "deep"]) -> AnalystPolicy:
+    """把 Web 的可读分析档位转换为受控 Agent 预算，不向浏览器开放任意数值。"""
+    if depth == "deep":
+        return AnalystPolicy(max_steps=10, max_queries=6)
+    return AnalystPolicy()

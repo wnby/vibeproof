@@ -8,7 +8,7 @@ from pathlib import Path
 
 from fastapi.testclient import TestClient
 
-from vibeproof.interfaces.api import app
+from vibeproof.interfaces.api import _analyst_policy, app
 
 client = TestClient(app)
 
@@ -31,10 +31,43 @@ def test_web_workspace_and_assets_are_served() -> None:
     assert "Agent 活动" in page.text
     assert script.status_code == 200
     assert "/api/v1/repositories/takeover" in script.text
+    assert "/api/v1/config" in script.text
+    assert "analysisDepth" in script.text
     assert styles.status_code == 200
     assert "color-scheme: light" in styles.text
     assert "--activity: #898982" in styles.text
     assert favicon.status_code == 200
+
+
+def test_web_configuration_reports_readiness_without_exposing_secrets(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("VIBEPROOF_WORKSPACE_ROOT", str(tmp_path))
+    monkeypatch.setenv("VIBEPROOF_AI_PROVIDER", "openai-compatible")
+    monkeypatch.setenv("VIBEPROOF_AI_MODEL", "test-model")
+    monkeypatch.setenv("VIBEPROOF_AI_BASE_URL", "https://relay.example/v1")
+    monkeypatch.setenv("VIBEPROOF_AI_API_KEY", "secret-value")
+
+    response = client.get("/api/v1/config")
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "workspaceConfigured": True,
+        "workspaceName": tmp_path.name,
+        "provider": "openai-compatible",
+        "model": "test-model",
+        "endpointConfigured": True,
+        "apiKeyConfigured": True,
+        "defaultAnalysisDepth": "deep",
+    }
+    assert "secret-value" not in response.text
+    assert "relay.example" not in response.text
+
+
+def test_web_analysis_profiles_use_bounded_agent_budgets() -> None:
+    standard = _analyst_policy("standard")
+    deep = _analyst_policy("deep")
+
+    assert (standard.max_queries, standard.max_steps) == (5, 8)
+    assert (deep.max_queries, deep.max_steps) == (6, 10)
 
 
 def test_api_scan_is_confined_to_configured_root(tmp_path: Path, monkeypatch) -> None:

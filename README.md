@@ -49,6 +49,7 @@ Implemented:
 - deterministic Agent Eval metrics for workflow status, citation integrity, learning coverage, and runtime expectations
 - healthy, intentionally broken, and async multi-component evaluation fixtures
 - a passing real-model MindBridge benchmark with 4/4 critical-path coverage and source-grounded learning
+- a completed MindBridge takeover through the same API contract used by the local Web workspace
 - Codex-inspired task activity, result tabs, runtime terminal, and source-evidence inspector
 
 Not implemented yet:
@@ -185,7 +186,9 @@ uv run python -m vibeproof serve
 
 Open `http://127.0.0.1:8000` to use the Web workspace. Enter a path relative to
 `VIBEPROOF_WORKSPACE_ROOT`, choose a configured provider, and start takeover. The browser never accepts or stores API
-keys. Agent activity is shown in neutral gray; green, amber, and red are reserved for evidence outcomes.
+keys. The page reads a secret-free server readiness summary, preselects the configured provider/model, and offers a
+deep profile for medium repositories (`6` searches within `10` Agent steps). Agent activity is shown in neutral gray;
+green, amber, and red are reserved for evidence outcomes. The evidence tab includes the Analyst's actual search trace.
 
 On PowerShell:
 

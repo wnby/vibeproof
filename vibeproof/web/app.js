@@ -4,6 +4,9 @@ const state = {
   relativePath: "",
   activeTab: "overview",
   recentRuns: loadRecentRuns(),
+  serverConfig: null,
+  runStartedAt: null,
+  elapsedTimer: null,
 };
 
 const elements = {
@@ -22,6 +25,7 @@ const elements = {
   recentRuns: document.querySelector("#recent-runs"),
   provider: document.querySelector("#provider"),
   model: document.querySelector("#model"),
+  analysisDepth: document.querySelector("#analysis-depth"),
   repositoryPath: document.querySelector("#repository-path"),
   executeRuntime: document.querySelector("#execute-runtime"),
   sidebarProvider: document.querySelector("#sidebar-provider"),
@@ -29,6 +33,9 @@ const elements = {
   inspectorTitle: document.querySelector("#inspector-title"),
   inspectorBody: document.querySelector("#inspector-body"),
   toast: document.querySelector("#toast"),
+  serverConfig: document.querySelector("#server-config"),
+  serverConfigTitle: document.querySelector("#server-config-title"),
+  serverConfigDetail: document.querySelector("#server-config-detail"),
 };
 
 elements.form.addEventListener("submit", startTakeover);
@@ -41,6 +48,38 @@ elements.provider.addEventListener("change", updateProviderLabel);
 
 renderRecentRuns();
 updateProviderLabel();
+loadServerConfiguration();
+
+async function loadServerConfiguration() {
+  try {
+    const response = await fetch("/api/v1/config");
+    const config = await parseResponse(response);
+    if (!response.ok) throw new Error(config.detail || "无法读取服务端配置");
+    state.serverConfig = config;
+    if ([...elements.provider.options].some((option) => option.value === config.provider)) {
+      elements.provider.value = config.provider;
+    }
+    if (config.model) elements.model.value = config.model;
+    elements.analysisDepth.value = config.defaultAnalysisDepth || "deep";
+    renderServerConfiguration(config);
+    updateProviderLabel();
+  } catch (error) {
+    elements.serverConfig.className = "server-config unavailable";
+    elements.serverConfigTitle.textContent = "服务端配置不可用";
+    elements.serverConfigDetail.textContent = error.message;
+  }
+}
+
+function renderServerConfiguration(config) {
+  const realProvider = config.provider !== "mock";
+  const modelReady = realProvider && config.endpointConfigured && config.apiKeyConfigured && config.model;
+  const ready = config.workspaceConfigured && (!realProvider || modelReady);
+  elements.serverConfig.className = `server-config ${ready ? "ready" : "unavailable"}`;
+  elements.serverConfigTitle.textContent = ready ? "服务端已准备好" : "服务端还缺少配置";
+  const workspace = config.workspaceName ? `工作区 ${config.workspaceName}` : "未配置工作区";
+  const model = realProvider ? `${config.model || "未指定模型"} · ${config.apiKeyConfigured ? "密钥已配置" : "缺少密钥"}` : "Mock · 确定性";
+  elements.serverConfigDetail.textContent = `${workspace}；${model}`;
+}
 
 async function startTakeover(event) {
   event.preventDefault();
@@ -57,11 +96,13 @@ async function startTakeover(event) {
   elements.activityFeed.innerHTML = runningActivity();
   elements.activitySummary.textContent = "处理中";
   elements.startButton.disabled = true;
+  startElapsedTimer();
   setRunState("running", "运行中");
 
   const payload = {
     relativePath,
     provider: elements.provider.value,
+    analysisDepth: elements.analysisDepth.value,
     executeRuntime: elements.executeRuntime.checked,
     runtimeCheck: "pytest",
   };
@@ -82,8 +123,24 @@ async function startTakeover(event) {
   } catch (error) {
     renderRequestFailure(error);
   } finally {
+    stopElapsedTimer();
     elements.startButton.disabled = false;
   }
+}
+
+function startElapsedTimer() {
+  stopElapsedTimer();
+  state.runStartedAt = Date.now();
+  state.elapsedTimer = setInterval(() => {
+    const elapsed = Math.floor((Date.now() - state.runStartedAt) / 1000);
+    const target = document.querySelector("#run-elapsed");
+    if (target) target.textContent = `${elapsed} 秒`;
+  }, 1000);
+}
+
+function stopElapsedTimer() {
+  if (state.elapsedTimer) clearInterval(state.elapsedTimer);
+  state.elapsedTimer = null;
 }
 
 function renderReport() {
@@ -111,11 +168,13 @@ function renderActivity(step) {
 }
 
 function runningActivity() {
+  const provider = elements.provider.options[elements.provider.selectedIndex]?.text || elements.provider.value;
+  const model = elements.model.value.trim() || "服务端默认模型";
   return `
     <article class="activity-item running">
       <span class="activity-marker" aria-hidden="true"></span>
-      <div class="activity-meta"><strong>VibeProof</strong><span>执行中</span></div>
-      <p>正在运行仓库接管流程。报告生成后，这里会展示 Coordinator 记录的真实阶段。</p>
+      <div class="activity-meta"><strong>VibeProof</strong><span id="run-elapsed">0 秒</span></div>
+      <p>服务端正在使用 ${escapeHtml(provider)} / ${escapeHtml(model)} 执行接管。完成后这里会替换为 Coordinator 与 Analyst 的真实轨迹。</p>
     </article>`;
 }
 
@@ -171,6 +230,7 @@ function renderEvidence() {
   if (!architecture) return emptyResult("架构分析没有生成报告。");
   const accepted = architecture.claims || [];
   const rejected = architecture.rejected_claims || [];
+  const trace = architecture.trace || [];
   return `
     <div class="summary-block">
       <h2>架构证据</h2>
@@ -180,7 +240,18 @@ function renderEvidence() {
     <div class="claim-list">${accepted.length ? accepted.map((claim) => claimCard(claim, false)).join("") : emptyResult("暂无已验证结论。")}</div>
     <h3 class="subsection-title">已拒绝结论 · ${rejected.length}</h3>
     <div class="claim-list">${rejected.length ? rejected.map((claim) => claimCard(claim, true)).join("") : emptyResult("没有被拒绝的结论。")}</div>
+    <h3 class="subsection-title">Analyst 检索轨迹 · ${trace.length}</h3>
+    <div class="trace-list">${trace.length ? trace.map(renderTraceStep).join("") : emptyResult("没有记录检索轨迹。")}</div>
     ${(architecture.unresolved_questions || []).length ? `<h3 class="subsection-title">待解决问题</h3><div class="warning-list">${architecture.unresolved_questions.map((item) => `<div class="warning-card"><p>${escapeHtml(item)}</p></div>`).join("")}</div>` : ""}`;
+}
+
+function renderTraceStep(step) {
+  const returned = step.returned_evidence_ids?.length || 0;
+  return `<article class="trace-card ${step.error ? "failed" : ""}">
+    <div class="trace-topline"><strong>步骤 ${step.step} · ${escapeHtml(step.action)}</strong><span>${returned} 条证据</span></div>
+    <code>${escapeHtml(step.query || step.message || "完成架构结论")}</code>
+    ${step.error ? `<p>${escapeHtml(step.error)}</p>` : ""}
+  </article>`;
 }
 
 function claimCard(claim, rejected) {
@@ -313,6 +384,7 @@ function renderRequestFailure(error) {
 }
 
 function resetWorkspace() {
+  stopElapsedTimer();
   state.report = null;
   state.relativePath = "";
   elements.welcome.classList.remove("hidden");

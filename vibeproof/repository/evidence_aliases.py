@@ -11,7 +11,7 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 
 _ALIAS_TOKEN = re.compile(r"(?<![A-Za-z0-9_])E\d+(?![A-Za-z0-9_])")
-_ALIAS_SEPARATORS = " `*_[](){}<>.,;:，。；：、/\\|\t\r\n"
+_ALIAS_SEPARATORS = " `*_[](){}<>.,;:，。；：、/\\|【】（）〈〉《》「」『』\t\r\n"
 
 
 @dataclass(frozen=True)

@@ -47,6 +47,20 @@
 线路下的一次完整成功，不代表所有仓库和每次模型采样都会稳定通过；后续应把该用例保留为真实模型回归
 基准。
 
+## Web 端到端接管
+
+2026-08-30 又通过本地 Web 服务的 `POST /api/v1/repositories/takeover` 执行同一仓库。页面请求使用
+`deep` 档位，服务端把它映射为 6 次检索和 10 个 Agent 步骤；浏览器只读取工作区、Provider、模型及
+“密钥是否配置”的摘要，不接收密钥或中转站地址。
+
+第一次 Web 请求在 Tutor 阶段被上游提前关闭，但报告保留了已完成的 8 条架构结论和 Runtime 计划。
+显式重试在 106.8 秒后完成：Takeover `COMPLETED`，Architecture `COMPLETED / VERIFIED`，9 条结论
+全部接受；Learning Plan `SOURCE_GROUNDED`，生成 5 个单元和 7 道题；Runtime 为预期的 `PLANNED`。
+脱敏结果位于 `examples/mindbridge-web-takeover-summary.json`。
+
+这次失败还留下一个明确的后续需求：阶段级检查点与重试。当前 Tutor 的网关失败会要求重新运行整个
+Takeover；后续应允许复用已经验证的 Architecture，仅重试失败阶段，减少延迟和模型费用。
+
 ## 复现命令
 
 API Key 只通过临时环境变量提供，不能写进命令参数或仓库：
