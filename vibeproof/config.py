@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 DEFAULT_DATABASE = Path(".vibeproof/index.sqlite3")
+DEFAULT_RUNS_DIRECTORY = Path(".vibeproof/runs")
 DEFAULT_AI_PROVIDER = "mock"
 DEFAULT_OPENAI_BASE_URL = "https://api.openai.com/v1"
 DEFAULT_OLLAMA_BASE_URL = "http://127.0.0.1:11434"
@@ -34,6 +35,7 @@ class Settings:
 
     workspace_root: Path | None
     database: Path
+    runs_directory: Path
     ai_provider: str
     ai_model: str
     ai_base_url: str
@@ -51,6 +53,7 @@ class Settings:
         return cls(
             workspace_root=Path(workspace).expanduser() if workspace else None,
             database=Path(os.getenv("VIBEPROOF_DATABASE", str(DEFAULT_DATABASE))).expanduser(),
+            runs_directory=Path(os.getenv("VIBEPROOF_RUNS_DIRECTORY", str(DEFAULT_RUNS_DIRECTORY))).expanduser(),
             ai_provider=os.getenv("VIBEPROOF_AI_PROVIDER", DEFAULT_AI_PROVIDER).strip().lower(),
             ai_model=os.getenv("VIBEPROOF_AI_MODEL", "").strip(),
             ai_base_url=os.getenv("VIBEPROOF_AI_BASE_URL", "").strip(),

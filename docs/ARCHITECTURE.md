@@ -205,3 +205,20 @@ TakeoverReport + QuizSubmission + EvidenceStore
 The answer reviewer never receives a source-search or execution capability. It can assess only the source excerpts
 already bound to the current question. The runtime derives pass/fail state from a validated score and rejects invented
 citations. The mock provider is explicitly structure-only and never emits a semantic score.
+
+## Persistent Web runs
+
+```text
+Web page -> POST /api/v1/runs -> WebRunService -> background TakeoverCoordinator
+              |                     |                    |
+              v                     v                    v
+         immediate run_id      RunStore JSON      real TakeoverStep callback
+              |                     ^                    |
+              +---- polling --------+--------------------+
+```
+
+Each Run owns one JSON record under `.vibeproof/runs`; SQLite continues to own source evidence only. This separation
+keeps persistence explicit: the report, stage checkpoints, configuration and learning attempts are portable JSON,
+while bounded source text remains in the evidence index. The Web process needs no queue service for this local-first
+release. A Tutor or Runtime retry reloads the saved report, verifies that the repository snapshot is unchanged, and
+reuses the accepted Analyst artifact.

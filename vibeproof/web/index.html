@@ -106,13 +106,15 @@
                 </div>
               </div>
 
-              <label class="runtime-toggle">
-                <input id="execute-runtime" name="executeRuntime" type="checkbox" />
-                <span>
-                  <strong>执行 pytest</strong>
-                  <small>这会运行目标仓库代码；不勾选时只生成可审查的命令计划。</small>
-                </span>
-              </label>
+              <div class="field runtime-field">
+                <label for="runtime-mode">运行验证</label>
+                <select id="runtime-mode" name="runtimeMode">
+                  <option value="plan">只生成计划 · 不执行代码</option>
+                  <option value="collect">收集测试 · pytest --collect-only</option>
+                  <option value="pytest">执行测试 · pytest</option>
+                </select>
+                <small>后两项会运行目标仓库代码，请在你信任的本地仓库中使用。</small>
+              </div>
 
               <div class="form-actions">
                 <span class="form-hint">密钥只保存在服务端环境变量中。</span>

@@ -237,6 +237,7 @@ class RepositoryAnalystAgent:
         for step in range(1, self.policy.max_steps + 1):
             aliases = EvidenceAliases.from_chunk_ids(observed)
             observed_paths = list(dict.fromkeys(hit.path for hit in observed.values()))
+            internal_imports = self.store.get_imported_paths(manifest.snapshot_id, observed_paths)
             state = _build_state(
                 manifest=manifest,
                 recommended_queries=recommended_queries,
@@ -247,7 +248,7 @@ class RepositoryAnalystAgent:
                 aliases=aliases,
                 remaining_queries=max(0, self.policy.max_queries - len(completed_queries)),
                 remaining_turns=self.policy.max_steps - step + 1,
-                internal_imports=self.store.get_imported_paths(manifest.snapshot_id, observed_paths),
+                internal_imports=internal_imports,
             )
             messages = [
                 ModelMessage(role="system", content=SYSTEM_PROMPT),
@@ -289,6 +290,13 @@ class RepositoryAnalystAgent:
             if action.action == AgentActionType.SEARCH_SOURCE:
                 query = action.query.strip() if action.query else ""
                 query_error = self._query_error(query, completed_queries)
+                recovery_message = None
+                if query_error == "duplicate query":
+                    fallback = _next_query(recommended_queries, internal_imports, completed_queries)
+                    if fallback is not None:
+                        recovery_message = f"replaced duplicate query {query!r} with {fallback!r}"
+                        query = fallback
+                        query_error = None
                 if query_error:
                     consecutive_invalid_actions += 1
                     trace.append(
@@ -336,7 +344,14 @@ class RepositoryAnalystAgent:
                         action=AgentActionType.SEARCH_SOURCE.value,
                         query=query,
                         returned_evidence_ids=returned_ids,
-                        message=f"returned {len(returned_ids)} evidence chunks",
+                        message="; ".join(
+                            item
+                            for item in (
+                                recovery_message,
+                                f"returned {len(returned_ids)} evidence chunks",
+                            )
+                            if item
+                        ),
                     )
                 )
                 consecutive_invalid_actions = 0
@@ -432,6 +447,17 @@ def _recommended_queries(manifest: RepositoryManifest) -> list[str]:
     if not candidates:
         candidates = ["main", "app", "service"]
     return list(dict.fromkeys(candidates))[:8]
+
+
+def _next_query(
+    recommended_queries: list[str],
+    internal_imports: dict[str, list[str]],
+    completed_queries: list[str],
+) -> str | None:
+    """重复检索时选择一个尚未探索的确定性入口或内部依赖路径。"""
+    candidates = [*recommended_queries]
+    candidates.extend(path for paths in internal_imports.values() for path in paths)
+    return next((query for query in dict.fromkeys(candidates) if query not in completed_queries), None)
 
 
 def _partition_entrypoints(entrypoints: list[str]) -> tuple[list[str], list[str]]:

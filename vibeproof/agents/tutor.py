@@ -184,11 +184,13 @@ class RepositoryTutorAgent:
         draft = draft.model_copy(
             update={
                 "units": [
-                    unit.model_copy(update={"evidence_ids": aliases.resolve_all(unit.evidence_ids)})
+                    unit.model_copy(update={"evidence_ids": _bounded_evidence_ids(aliases, unit.evidence_ids)})
                     for unit in draft.units
                 ],
                 "questions": [
-                    question.model_copy(update={"evidence_ids": aliases.resolve_all(question.evidence_ids)})
+                    question.model_copy(
+                        update={"evidence_ids": _bounded_evidence_ids(aliases, question.evidence_ids)}
+                    )
                     for question in draft.questions
                 ],
             }
@@ -292,6 +294,11 @@ def _evidence_error(
     if mismatched:
         return f"evidence metadata failed integrity review: {', '.join(mismatched)}"
     return None
+
+
+def _bounded_evidence_ids(aliases: EvidenceAliases, references: list[str]) -> list[str]:
+    """恢复模型可能合并书写的别名，并重新施加领域模型的五条证据上限。"""
+    return list(dict.fromkeys(aliases.resolve_all(references)))[:5]
 
 
 def _matches(hit: EvidenceHit, reference: EvidenceReference) -> bool:

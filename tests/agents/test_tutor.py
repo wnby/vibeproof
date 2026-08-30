@@ -10,7 +10,7 @@ import json
 from pathlib import Path
 
 from vibeproof.agents.analyst import RepositoryAnalystAgent
-from vibeproof.agents.tutor import LearningPlanReviewer, RepositoryTutorAgent
+from vibeproof.agents.tutor import LearningPlanReviewer, RepositoryTutorAgent, _bounded_evidence_ids
 from vibeproof.core.models import (
     LearningPlanDraft,
     LearningPlanStatus,
@@ -19,6 +19,7 @@ from vibeproof.core.models import (
     QuizQuestionDraft,
 )
 from vibeproof.llm.client import MockAnalystModelClient, MockTutorModelClient, ModelMessage
+from vibeproof.repository.evidence_aliases import EvidenceAliases
 from vibeproof.repository.index import PythonSourceIndexer
 from vibeproof.repository.learning_evidence import LearningEvidenceSelector
 from vibeproof.repository.scanner import RepositoryScanner
@@ -154,3 +155,11 @@ def test_mock_tutor_output_is_deterministic_for_same_state(tmp_path: Path) -> No
     model = MockTutorModelClient()
 
     assert model.complete(messages) == model.complete(messages)
+
+
+def test_resolved_tutor_aliases_remain_within_model_evidence_limit() -> None:
+    aliases = EvidenceAliases({f"E{index}": f"chunk:{index}" for index in range(1, 7)})
+
+    resolved = _bounded_evidence_ids(aliases, ["E1, E2, E3, E4, E5", "E6"])
+
+    assert resolved == ["chunk:1", "chunk:2", "chunk:3", "chunk:4", "chunk:5"]

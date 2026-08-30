@@ -51,10 +51,14 @@ Implemented:
 - a passing real-model MindBridge benchmark with 4/4 critical-path coverage and source-grounded learning
 - a completed MindBridge takeover through the same API contract used by the local Web workspace
 - Codex-inspired task activity, result tabs, runtime terminal, and source-evidence inspector
+- durable background Web runs with real stage polling and JSON checkpoints
+- Tutor/Runtime stage retry without repeating a completed Analyst run
+- persistent multi-attempt Web quizzes and evidence-backed answer review
+- reloadable run history with JSON/Markdown export and deletion
+- selectable plan-only, `pytest --collect-only`, and full `pytest` runtime modes
 
-Not implemented yet:
+Intentionally out of scope for the first release:
 
-- persistent learning progress across multiple attempts
 - arbitrary command execution or code modification
 - GitHub App integration
 - fine-tuned tool-risk model
@@ -189,6 +193,8 @@ Open `http://127.0.0.1:8000` to use the Web workspace. Enter a path relative to
 keys. The page reads a secret-free server readiness summary, preselects the configured provider/model, and offers a
 deep profile for medium repositories (`6` searches within `10` Agent steps). Agent activity is shown in neutral gray;
 green, amber, and red are reserved for evidence outcomes. The evidence tab includes the Analyst's actual search trace.
+Takeovers run in a local background thread and are checkpointed under `VIBEPROOF_RUNS_DIRECTORY` (default
+`.vibeproof/runs`), so a completed task and every learning attempt can be reopened after a page or server restart.
 
 On PowerShell:
 
@@ -206,10 +212,10 @@ Content-Type: application/json
 {"relativePath":"my-python-project"}
 ```
 
-Run the complete plan-first workflow from the Web API:
+Start the complete workflow as a persistent background Run:
 
 ```http
-POST /api/v1/repositories/takeover
+POST /api/v1/runs
 Content-Type: application/json
 
 {
@@ -220,8 +226,10 @@ Content-Type: application/json
 }
 ```
 
-`executeRuntime` must be explicitly enabled before the fixed pytest command is run. Clicking a verified claim in the
-Web workspace requests only its bounded, repository-confined source range from `/api/v1/repositories/source`.
+Poll `GET /api/v1/runs/{run_id}` for real completed stages. The Web workspace also exposes stage retry, answer review,
+history, export and deletion through the same `/api/v1/runs` resource. `executeRuntime` must be explicitly enabled
+before a fixed pytest command is run. Clicking a verified claim requests only its bounded, repository-confined source
+range from `/api/v1/repositories/source`.
 
 ## Project structure
 
@@ -230,7 +238,7 @@ vibeproof/
 ├── config.py          # environment variables and application defaults
 ├── agents/            # Analyst, Tutor, and Answer Reviewer agents
 ├── core/models/       # typed contracts grouped by business domain
-├── repository/        # scanning, source indexing, retrieval, and SQLite evidence
+├── repository/        # scanning, source evidence, SQLite index, and JSON Run persistence
 ├── llm/               # model protocol, providers, retry decorator, structured output
 ├── runtime/           # explicit repository test planning and execution
 ├── workflows/         # takeover, evaluation, and quiz use cases

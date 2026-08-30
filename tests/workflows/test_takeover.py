@@ -17,7 +17,7 @@ from vibeproof.core.models import (
     TakeoverStage,
     TakeoverStatus,
 )
-from vibeproof.llm.client import MockAnalystModelClient, ModelClientError, ModelMessage
+from vibeproof.llm.client import MockAnalystModelClient, MockTutorModelClient, ModelClientError, ModelMessage
 from vibeproof.reports.takeover import render_takeover_report
 from vibeproof.repository.store import EvidenceStore
 from vibeproof.runtime.verifier import RuntimePolicy
@@ -198,3 +198,34 @@ def test_markdown_takeover_report_contains_all_major_sections(tmp_path: Path) ->
     assert "## Workflow trace" in rendered
     assert "repository_entrypoint" in rendered
     assert "return 'ready'" not in rendered
+
+
+def test_coordinator_emits_real_steps_and_retries_tutor_from_checkpoint(tmp_path: Path) -> None:
+    repository = _repository(tmp_path)
+    emitted = []
+    failing = TakeoverCoordinator(
+        store=EvidenceStore(tmp_path / "state" / "index.sqlite3"),
+        model=MockAnalystModelClient(),
+        tutor_model=FailingTutorModel(),
+        on_step=emitted.append,
+    )
+    partial = failing.run(repository)
+
+    assert [step.stage for step in emitted] == [step.stage for step in partial.steps]
+    assert partial.status == TakeoverStatus.PARTIAL
+    original_architecture = partial.architecture
+
+    retry_steps = []
+    repaired = TakeoverCoordinator(
+        store=failing.store,
+        model=MockAnalystModelClient(),
+        tutor_model=MockTutorModelClient(),
+        on_step=retry_steps.append,
+    ).retry_stage(repository, partial, TakeoverStage.LEARNING_PLAN)
+
+    assert repaired.status == TakeoverStatus.COMPLETED
+    assert repaired.architecture == original_architecture
+    assert repaired.learning_plan is not None
+    assert repaired.learning_plan.status.value == "SOURCE_GROUNDED"
+    assert [step.stage for step in retry_steps] == [TakeoverStage.LEARNING_PLAN, TakeoverStage.REPORT]
+    assert len(repaired.steps) == len(partial.steps) + 2

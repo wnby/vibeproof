@@ -7,22 +7,39 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Literal
 
 from fastapi import FastAPI, HTTPException, status
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field
 
 from vibeproof import __version__
 from vibeproof.agents.analyst import AnalystPolicy
 from vibeproof.config import ConfigurationError, Settings
-from vibeproof.core.models import RepositoryManifest, RuntimeCheck, TakeoverReport
+from vibeproof.core.models import (
+    AnswerSubmission,
+    LearningAttempt,
+    RepositoryManifest,
+    RuntimeCheck,
+    TakeoverReport,
+    TakeoverStage,
+    WebRunConfiguration,
+    WebRunRecord,
+    WebRunStatus,
+    WebRunSummary,
+)
 from vibeproof.llm.client import create_model_client
+from vibeproof.reports.review import render_answer_review
+from vibeproof.reports.takeover import render_takeover_report
+from vibeproof.repository.run_store import RunNotFoundError, RunStore
 from vibeproof.repository.scanner import RepositoryScanner
 from vibeproof.repository.store import EvidenceStore
+from vibeproof.workflows.quiz import create_quiz_submission
 from vibeproof.workflows.takeover import TakeoverCoordinator, TakeoverPolicy
+from vibeproof.workflows.web_runs import WebRunService
 
 WEB_ROOT = Path(__file__).parents[1] / "web"
 
@@ -79,6 +96,20 @@ class SourceExcerpt(ApiModel):
     start_line: int = Field(alias="startLine")
     end_line: int = Field(alias="endLine")
     content: str
+
+
+class RetryRequest(ApiModel):
+    """允许页面明确选择只重跑学习计划或 Runtime。"""
+
+    stage: Literal["learning", "runtime"]
+
+
+class ReviewRequest(ApiModel):
+    """一轮 Web 答题内容及其服务端模型选择。"""
+
+    answers: list[AnswerSubmission] = Field(max_length=100)
+    provider: Literal["mock", "openai-compatible", "ollama"] = "mock"
+    model: str | None = Field(default=None, min_length=1, max_length=200)
 
 
 @app.get("/", include_in_schema=False)
@@ -155,6 +186,134 @@ def takeover_repository(request: TakeoverRequest) -> TakeoverReport:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 
 
+@app.post("/api/v1/runs", response_model=WebRunRecord, status_code=status.HTTP_202_ACCEPTED)
+def start_run(request: TakeoverRequest) -> WebRunRecord:
+    """立即返回持久化 Run ID，由后台线程完成仓库接管。"""
+    target = _resolve_repository(request.relative_path)
+    settings = Settings.from_env()
+    try:
+        analyst_model, tutor_model = _takeover_models(request.provider, request.model, settings)
+        configuration = WebRunConfiguration(
+            relative_path=request.relative_path,
+            provider=request.provider,
+            model=request.model,
+            analysis_depth=request.analysis_depth,
+            execute_runtime=request.execute_runtime,
+            runtime_check=_runtime_check(request.runtime_check),
+        )
+        return _run_service(settings).start(
+            target,
+            configuration,
+            analyst_model,
+            tutor_model,
+            _takeover_policy(request),
+        )
+    except (ConfigurationError, OSError, ValueError) as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+
+@app.get("/api/v1/runs", response_model=list[WebRunSummary])
+def list_runs(limit: int = 20) -> list[WebRunSummary]:
+    """返回最近更新的轻量任务列表，供页面刷新后恢复历史。"""
+    try:
+        return RunStore(Settings.from_env().runs_directory).list_summaries(limit)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+
+@app.get("/api/v1/runs/{run_id}", response_model=WebRunRecord)
+def get_run(run_id: str) -> WebRunRecord:
+    """读取一个完整 Run、阶段轨迹和历次学习评审。"""
+    return _load_run(run_id)
+
+
+@app.delete("/api/v1/runs/{run_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_run(run_id: str) -> Response:
+    """删除一条已结束的本地历史；运行中的任务不会被中途移除。"""
+    settings = Settings.from_env()
+    record = _load_run(run_id)
+    if record.status in {WebRunStatus.PENDING, WebRunStatus.RUNNING}:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="running tasks cannot be deleted")
+    try:
+        RunStore(settings.runs_directory).delete(run_id)
+    except (RunNotFoundError, ValueError) as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@app.post("/api/v1/runs/{run_id}/retry", response_model=WebRunRecord, status_code=status.HTTP_202_ACCEPTED)
+def retry_run(run_id: str, request: RetryRequest) -> WebRunRecord:
+    """从持久化检查点重跑 Tutor 或 Runtime，不重复支付 Analyst 调用。"""
+    settings = Settings.from_env()
+    record = _load_run(run_id)
+    target = _resolve_repository(record.configuration.relative_path)
+    try:
+        analyst_model, tutor_model = _takeover_models(
+            record.configuration.provider,
+            record.configuration.model,
+            settings,
+        )
+        stage = (
+            TakeoverStage.LEARNING_PLAN
+            if request.stage == "learning"
+            else (
+                TakeoverStage.RUNTIME_EXECUTION
+                if record.configuration.execute_runtime
+                else TakeoverStage.RUNTIME_PLAN
+            )
+        )
+        return _run_service(settings).retry(
+            run_id,
+            target,
+            stage,
+            analyst_model,
+            tutor_model,
+            _policy_from_configuration(record.configuration),
+        )
+    except (ConfigurationError, OSError, ValueError) as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+
+
+@app.post("/api/v1/runs/{run_id}/review", response_model=LearningAttempt)
+def review_answers(run_id: str, request: ReviewRequest) -> LearningAttempt:
+    """评审一轮页面答案并把结果追加到该 Run 的学习历史。"""
+    settings = Settings.from_env()
+    record = _load_run(run_id)
+    if record.report is None:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="run has no report to review")
+    try:
+        template = create_quiz_submission(record.report)
+        submission = template.model_copy(update={"answers": request.answers, "submitted_at": datetime.now(UTC)})
+        model = create_model_client(
+            provider=request.provider,
+            model=request.model,
+            task="review",
+            settings=settings,
+        )
+        return _run_service(settings).review(run_id, submission, model)
+    except (ConfigurationError, OSError, ValueError) as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+
+@app.get("/api/v1/runs/{run_id}/export")
+def export_run(run_id: str, format: Literal["json", "markdown"] = "json") -> Response:
+    """下载完整 JSON 记录或包含接管与历次评审的 Markdown 文档。"""
+    record = _load_run(run_id)
+    filename = f"vibeproof-{run_id}.{'json' if format == 'json' else 'md'}"
+    headers = {"Content-Disposition": f'attachment; filename="{filename}"'}
+    if format == "json":
+        return Response(
+            content=record.model_dump_json(indent=2) + "\n",
+            media_type="application/json",
+            headers=headers,
+        )
+    if record.report is None:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="run has no report to export")
+    sections = [render_takeover_report(record.report)]
+    sections.extend(render_answer_review(item.review, record.report) for item in record.attempts)
+    return Response(content="\n---\n\n".join(sections), media_type="text/markdown", headers=headers)
+
+
 @app.post("/api/v1/repositories/source", response_model=SourceExcerpt)
 def read_source_excerpt(request: SourceExcerptRequest) -> SourceExcerpt:
     """按引用行号读取源码，同时确保路径和行数都留在所选仓库边界内。"""
@@ -215,3 +374,51 @@ def _analyst_policy(depth: Literal["standard", "deep"]) -> AnalystPolicy:
     if depth == "deep":
         return AnalystPolicy(max_steps=10, max_queries=6)
     return AnalystPolicy()
+
+
+def _run_service(settings: Settings) -> WebRunService:
+    """按集中配置组装无全局状态的 Run 服务，历史记录始终从磁盘恢复。"""
+    return WebRunService(RunStore(settings.runs_directory), EvidenceStore(settings.database))
+
+
+def _takeover_models(provider: str, model: str | None, settings: Settings):
+    """为 Analyst 与 Tutor 创建彼此独立、但配置一致的模型客户端。"""
+    analyst_model = create_model_client(provider=provider, model=model, task="analyst", settings=settings)
+    tutor_model = create_model_client(provider=provider, model=model, task="tutor", settings=settings)
+    return analyst_model, tutor_model
+
+
+def _runtime_check(value: str) -> RuntimeCheck:
+    """把 Web 表单中的短值限制到受支持的两种固定命令。"""
+    return RuntimeCheck.PYTEST if value == "pytest" else RuntimeCheck.PYTEST_COLLECT
+
+
+def _takeover_policy(request: TakeoverRequest) -> TakeoverPolicy:
+    """从经过校验的 Web 请求构造工作流策略。"""
+    return TakeoverPolicy(
+        analyst_policy=_analyst_policy(request.analysis_depth),
+        runtime_check=_runtime_check(request.runtime_check),
+        execute_runtime=request.execute_runtime,
+    )
+
+
+def _policy_from_configuration(configuration: WebRunConfiguration) -> TakeoverPolicy:
+    """重试时从持久化的非敏感配置还原原始工作流策略。"""
+    analyst_policy = (
+        AnalystPolicy(max_steps=10, max_queries=6)
+        if configuration.analysis_depth == "deep"
+        else AnalystPolicy()
+    )
+    return TakeoverPolicy(
+        analyst_policy=analyst_policy,
+        runtime_check=configuration.runtime_check,
+        execute_runtime=configuration.execute_runtime,
+    )
+
+
+def _load_run(run_id: str) -> WebRunRecord:
+    """统一把无效或不存在的 Run ID 转换为 404。"""
+    try:
+        return RunStore(Settings.from_env().runs_directory).load(run_id)
+    except (RunNotFoundError, ValueError) as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc

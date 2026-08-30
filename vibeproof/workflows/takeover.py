@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import sqlite3
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from time import monotonic
@@ -62,6 +63,7 @@ class TakeoverCoordinator:
         model: ModelClient,
         policy: TakeoverPolicy | None = None,
         tutor_model: ModelClient | None = None,
+        on_step: Callable[[TakeoverStep], None] | None = None,
     ):
         self.store = store
         self.model = model
@@ -74,6 +76,7 @@ class TakeoverCoordinator:
             resolved_tutor_model = MockTutorModelClient() if model.provider == "mock" else model
         self.tutor = RepositoryTutorAgent(self.store, resolved_tutor_model, self.policy.tutor_policy)
         self.verifier = RuntimeVerifier(self.policy.runtime_policy)
+        self.on_step = on_step
 
     def run(self, root: str | Path) -> TakeoverReport:
         """执行黄金路径并保留已完成产物；后期阶段失败时返回 ``PARTIAL``。"""
@@ -82,37 +85,46 @@ class TakeoverCoordinator:
         warnings: list[str] = []
 
         manifest, error = self._scan(root, steps)
+        self._emit_latest(steps)
         if manifest is None:
             warnings.append(error or "Repository scan failed.")
-            return self._failed_report(repository_name, steps, warnings)
+            report = self._failed_report(repository_name, steps, warnings)
+            self._emit_latest(steps)
+            return report
 
         repository_name = manifest.repository_name
         warnings.extend(manifest.warnings)
         repository = _repository_summary(manifest)
 
         source_index, error = self._index(root, manifest, steps)
+        self._emit_latest(steps)
         if source_index is None:
             warnings.append(error or "Source indexing failed.")
-            return self._failed_report(
+            report = self._failed_report(
                 repository_name,
                 steps,
                 warnings,
                 snapshot_id=manifest.snapshot_id,
                 repository=repository,
             )
+            self._emit_latest(steps)
+            return report
         warnings.extend(source_index.warnings)
 
         architecture, analysis_error = self._analyze(manifest, steps)
+        self._emit_latest(steps)
         if architecture is not None:
             warnings.extend(architecture.warnings)
         elif analysis_error:
             warnings.append(analysis_error)
 
         learning_plan = self._learn(manifest, architecture, steps)
+        self._emit_latest(steps)
         if learning_plan is not None:
             warnings.extend(learning_plan.warnings)
 
         runtime, runtime_error = self._runtime(root, steps)
+        self._emit_latest(steps)
         if runtime is not None:
             warnings.extend(runtime.warnings)
         elif runtime_error:
@@ -132,6 +144,7 @@ class TakeoverCoordinator:
                 duration_ms=0,
             )
         )
+        self._emit_latest(steps)
         return TakeoverReport(
             repository_name=repository_name,
             snapshot_id=manifest.snapshot_id,
@@ -145,6 +158,63 @@ class TakeoverCoordinator:
             steps=steps,
             warnings=_unique(warnings),
         )
+
+    def retry_stage(
+        self,
+        root: str | Path,
+        report: TakeoverReport,
+        stage: TakeoverStage,
+    ) -> TakeoverReport:
+        """只重跑 Tutor 或 Runtime 阶段，并复用已验证的 Analyst 产物。"""
+        supported = {
+            TakeoverStage.LEARNING_PLAN,
+            TakeoverStage.RUNTIME_PLAN,
+            TakeoverStage.RUNTIME_EXECUTION,
+        }
+        if stage not in supported:
+            raise ValueError(f"stage cannot be retried independently: {stage.value}")
+
+        manifest = self.scanner.scan(root)
+        if not report.snapshot_id or manifest.snapshot_id != report.snapshot_id:
+            raise ValueError("repository snapshot changed; start a new takeover instead of retrying")
+
+        steps = list(report.steps)
+        architecture = report.architecture
+        learning_plan = report.learning_plan
+        runtime = report.runtime
+        if stage == TakeoverStage.LEARNING_PLAN:
+            learning_plan = self._learn(manifest, architecture, steps)
+        else:
+            runtime, _ = self._runtime(root, steps)
+        self._emit_latest(steps)
+
+        status = _takeover_status(manifest, architecture, learning_plan, runtime)
+        steps.append(
+            TakeoverStep(
+                step=len(steps) + 1,
+                stage=TakeoverStage.REPORT,
+                status=StageStatus.COMPLETED,
+                summary=f"Recomposed the takeover report after retrying {stage.value}.",
+                duration_ms=0,
+            )
+        )
+        self._emit_latest(steps)
+        warnings = _current_warnings(manifest, architecture, learning_plan, runtime)
+        return report.model_copy(
+            update={
+                "status": status,
+                "summary": _report_summary(status, runtime),
+                "learning_plan": learning_plan,
+                "runtime": runtime,
+                "steps": steps,
+                "warnings": warnings,
+            }
+        )
+
+    def _emit_latest(self, steps: list[TakeoverStep]) -> None:
+        """把刚刚完成的真实阶段交给外层持久化，不制造估算进度。"""
+        if self.on_step is not None and steps:
+            self.on_step(steps[-1])
 
     def _scan(self, root: str | Path, steps: list[TakeoverStep]) -> tuple[RepositoryManifest | None, str | None]:
         """建立后续所有证据共同使用的仓库快照。"""
@@ -362,6 +432,20 @@ def _report_summary(status: TakeoverStatus, runtime: RuntimeVerificationReport |
     if status == TakeoverStatus.SNAPSHOT_CHANGED:
         return "Repository content changed during takeover; review the recorded before and after snapshots."
     return "Repository takeover produced partial evidence; review failed workflow stages and warnings."
+
+
+def _current_warnings(
+    manifest: RepositoryManifest,
+    architecture: ArchitectureReport | None,
+    learning_plan: LearningPlan | None,
+    runtime: RuntimeVerificationReport | None,
+) -> list[str]:
+    """重试后只汇总当前产物的告警，避免已经修复的旧错误继续污染状态。"""
+    warnings = list(manifest.warnings)
+    for artifact in (architecture, learning_plan, runtime):
+        if artifact is not None:
+            warnings.extend(artifact.warnings)
+    return _unique(warnings)
 
 
 def _runtime_error(report: RuntimeVerificationReport) -> str | None:

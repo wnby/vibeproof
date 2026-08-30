@@ -221,16 +221,18 @@ def test_successful_search_resets_consecutive_invalid_action_count(tmp_path: Pat
     ]
 
 
-def test_duplicate_query_is_rejected(tmp_path: Path) -> None:
+def test_duplicate_query_uses_an_unvisited_deterministic_fallback(tmp_path: Path) -> None:
     _, manifest, store = _repository(tmp_path)
+    hit = store.search(manifest.snapshot_id, "run_demo", limit=1)[0]
     search = json.dumps({"action": "SEARCH_SOURCE", "query": "run_demo"})
-    model = ScriptedModel(responses=[search, search])
+    model = ScriptedModel(responses=[search, search, _final_action(hit.chunk_id)])
     policy = AnalystPolicy(max_invalid_actions=1)
 
     report = RepositoryAnalystAgent(store, model, policy).run(manifest)
 
-    assert report.run_status == AgentRunStatus.INVALID_ACTION
-    assert report.trace[-1].error == "duplicate query"
+    assert report.run_status == AgentRunStatus.COMPLETED
+    assert report.trace[1].query == "main.py"
+    assert "replaced duplicate query" in report.trace[1].message
 
 
 def test_differently_worded_searches_do_not_return_observed_chunks(tmp_path: Path) -> None:

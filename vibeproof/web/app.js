@@ -1,12 +1,14 @@
 // VibeProof Web 工作台的浏览器控制器：调用接管 API，并渲染活动、证据、学习计划与运行报告。
 const state = {
+  run: null,
   report: null,
   relativePath: "",
   activeTab: "overview",
-  recentRuns: loadRecentRuns(),
+  recentRuns: [],
   serverConfig: null,
   runStartedAt: null,
   elapsedTimer: null,
+  pollTimer: null,
 };
 
 const elements = {
@@ -27,7 +29,7 @@ const elements = {
   model: document.querySelector("#model"),
   analysisDepth: document.querySelector("#analysis-depth"),
   repositoryPath: document.querySelector("#repository-path"),
-  executeRuntime: document.querySelector("#execute-runtime"),
+  runtimeMode: document.querySelector("#runtime-mode"),
   sidebarProvider: document.querySelector("#sidebar-provider"),
   inspector: document.querySelector("#inspector"),
   inspectorTitle: document.querySelector("#inspector-title"),
@@ -45,10 +47,12 @@ document.querySelectorAll(".tab").forEach((button) => {
   button.addEventListener("click", () => selectTab(button.dataset.tab));
 });
 elements.provider.addEventListener("change", updateProviderLabel);
+elements.recentRuns.addEventListener("click", openRecentRun);
+elements.resultContent.addEventListener("click", handleResultAction);
 
-renderRecentRuns();
 updateProviderLabel();
 loadServerConfiguration();
+loadRecentRuns();
 
 async function loadServerConfiguration() {
   try {
@@ -87,13 +91,14 @@ async function startTakeover(event) {
   if (!relativePath) return;
 
   state.relativePath = relativePath;
+  state.run = null;
   state.report = null;
   elements.welcome.classList.add("hidden");
   elements.runView.classList.remove("hidden");
   elements.resultSection.classList.add("hidden");
   elements.repositoryTitle.textContent = leafName(relativePath);
   elements.taskPrompt.innerHTML = `接管 <code>${escapeHtml(relativePath)}</code>，生成有源码依据的架构、学习路径和运行证据。`;
-  elements.activityFeed.innerHTML = runningActivity();
+  elements.activityFeed.innerHTML = runningActivity("正在创建后台任务");
   elements.activitySummary.textContent = "处理中";
   elements.startButton.disabled = true;
   startElapsedTimer();
@@ -103,29 +108,77 @@ async function startTakeover(event) {
     relativePath,
     provider: elements.provider.value,
     analysisDepth: elements.analysisDepth.value,
-    executeRuntime: elements.executeRuntime.checked,
-    runtimeCheck: "pytest",
+    executeRuntime: elements.runtimeMode.value !== "plan",
+    runtimeCheck: elements.runtimeMode.value === "collect" ? "pytest-collect" : "pytest",
   };
   const model = elements.model.value.trim();
   if (model) payload.model = model;
 
   try {
-    const response = await fetch("/api/v1/repositories/takeover", {
+    const response = await fetch("/api/v1/runs", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
     const body = await parseResponse(response);
     if (!response.ok) throw new Error(body.detail || `请求失败，HTTP ${response.status}`);
-    state.report = body;
-    renderReport();
-    rememberRun(body);
+    applyRun(body);
+    await pollRun(body.run_id);
   } catch (error) {
     renderRequestFailure(error);
-  } finally {
-    stopElapsedTimer();
-    elements.startButton.disabled = false;
   }
+}
+
+async function pollRun(runId) {
+  clearTimeout(state.pollTimer);
+  try {
+    const response = await fetch(`/api/v1/runs/${encodeURIComponent(runId)}`);
+    const body = await parseResponse(response);
+    if (!response.ok) throw new Error(body.detail || "无法读取任务状态");
+    applyRun(body);
+    if (["PENDING", "RUNNING"].includes(body.status)) {
+      state.pollTimer = setTimeout(() => pollRun(runId), 900);
+      return;
+    }
+    finishRun();
+  } catch (error) {
+    finishRun();
+    renderRequestFailure(error);
+  }
+}
+
+function applyRun(run) {
+  state.run = run;
+  state.report = run.report;
+  state.relativePath = run.configuration.relative_path;
+  elements.welcome.classList.add("hidden");
+  elements.runView.classList.remove("hidden");
+  elements.repositoryTitle.textContent = run.report?.repository_name || leafName(state.relativePath);
+  elements.taskPrompt.innerHTML = `接管 <code>${escapeHtml(state.relativePath)}</code>，Run <code>${escapeHtml(run.run_id)}</code>`;
+  renderRunActivity();
+  if (run.report) {
+    elements.resultSection.classList.remove("hidden");
+    selectTab(state.activeTab);
+  }
+}
+
+function renderRunActivity() {
+  const run = state.run;
+  const terminal = !["PENDING", "RUNNING"].includes(run.status);
+  const completed = (run.steps || []).map(renderActivity).join("");
+  const live = terminal ? "" : runningActivity(run.active_stage ? `${stageLabel(run.active_stage)} 已写入检查点，正在继续` : "后台任务已启动");
+  elements.activityFeed.innerHTML = completed + live;
+  const failedSteps = (run.steps || []).filter((step) => step.status === "FAILED").length;
+  elements.activitySummary.textContent = terminal
+    ? (failedSteps ? `${failedSteps} 个阶段需要处理` : "全部阶段已完成")
+    : `已完成 ${(run.steps || []).length} 个阶段`;
+  setRunState(run.status.toLowerCase(), statusLabel(run.status));
+}
+
+function finishRun() {
+  stopElapsedTimer();
+  elements.startButton.disabled = false;
+  loadRecentRuns();
 }
 
 function startElapsedTimer() {
@@ -143,16 +196,6 @@ function stopElapsedTimer() {
   state.elapsedTimer = null;
 }
 
-function renderReport() {
-  const report = state.report;
-  elements.activityFeed.innerHTML = report.steps.map(renderActivity).join("");
-  const failedSteps = report.steps.filter((step) => step.status === "FAILED").length;
-  elements.activitySummary.textContent = failedSteps ? `${failedSteps} 个阶段需要处理` : "全部阶段已完成";
-  elements.resultSection.classList.remove("hidden");
-  setRunState(report.status.toLowerCase(), statusLabel(report.status));
-  selectTab("overview");
-}
-
 function renderActivity(step) {
   const failed = step.status === "FAILED";
   return `
@@ -167,14 +210,14 @@ function renderActivity(step) {
     </article>`;
 }
 
-function runningActivity() {
+function runningActivity(message) {
   const provider = elements.provider.options[elements.provider.selectedIndex]?.text || elements.provider.value;
   const model = elements.model.value.trim() || "服务端默认模型";
   return `
     <article class="activity-item running">
       <span class="activity-marker" aria-hidden="true"></span>
       <div class="activity-meta"><strong>VibeProof</strong><span id="run-elapsed">0 秒</span></div>
-      <p>服务端正在使用 ${escapeHtml(provider)} / ${escapeHtml(model)} 执行接管。完成后这里会替换为 Coordinator 与 Analyst 的真实轨迹。</p>
+      <p>${escapeHtml(message)}。服务端正在使用 ${escapeHtml(provider)} / ${escapeHtml(model)} 执行接管。</p>
     </article>`;
 }
 
@@ -201,6 +244,13 @@ function renderOverview() {
   const language = Object.entries(repository.languages || {}).sort((a, b) => b[1] - a[1])[0]?.[0] || "—";
   const warnings = report.warnings || [];
   return `
+    <div class="result-actions">
+      <a class="secondary-button" href="/api/v1/runs/${encodeURIComponent(state.run.run_id)}/export?format=json">导出 JSON</a>
+      <a class="secondary-button" href="/api/v1/runs/${encodeURIComponent(state.run.run_id)}/export?format=markdown">导出 Markdown</a>
+      <button class="secondary-button" type="button" data-action="retry-learning">重跑 Tutor</button>
+      <button class="secondary-button" type="button" data-action="retry-runtime">重跑 Runtime</button>
+      <button class="danger-button" type="button" data-action="delete-run">删除记录</button>
+    </div>
     <div class="summary-block">
       <h2>${escapeHtml(report.repository_name)}</h2>
       <p>${escapeHtml(report.summary)}</p>
@@ -272,6 +322,9 @@ function claimCard(claim, rejected) {
 function renderLearning() {
   const plan = state.report.learning_plan;
   if (!plan) return emptyResult("完成架构分析后才能生成学习计划。");
+  const attempts = state.run?.attempts || [];
+  const latest = attempts.at(-1)?.review;
+  const assessments = new Map((latest?.assessments || []).map((item) => [item.question_id, item]));
   const questionsByUnit = new Map();
   (plan.questions || []).forEach((question) => {
     const items = questionsByUnit.get(question.unit_sequence) || [];
@@ -280,6 +333,11 @@ function renderLearning() {
   });
   return `
     <div class="summary-block"><h2>学习路径</h2><p>${escapeHtml(plan.summary)}</p></div>
+    ${latest ? `<div class="progress-card">
+      <strong>第 ${attempts.length} 次学习记录</strong>
+      <span>完成度 ${latest.progress.completion_percent.toFixed(1)}% · 掌握度 ${latest.progress.mastery_percent.toFixed(1)}%</span>
+      <small>${escapeHtml(latest.mode === "MODEL_ASSESSED" ? "模型已按源码证据评审" : "Mock 仅检查提交结构")}</small>
+    </div>` : ""}
     <div class="learning-list">
       ${(plan.units || []).map((unit) => {
         const questions = questionsByUnit.get(unit.sequence) || [];
@@ -287,10 +345,24 @@ function renderLearning() {
           <div class="learning-topline"><h3>${escapeHtml(unit.title)}</h3><span class="learning-sequence">单元 ${unit.sequence}</span></div>
           <p><span class="learning-label">学习目标 · </span>${escapeHtml(unit.objective)}</p>
           <p><span class="learning-label">练习 · </span>${escapeHtml(unit.exercise)}</p>
-          ${questions.map((question) => `<p><span class="learning-label">验收问题 · </span>${escapeHtml(question.prompt)}</p>`).join("")}
+          ${questions.map((question) => {
+            const assessment = assessments.get(question.question_id);
+            return `<div class="quiz-question">
+              <label for="answer-${escapeAttribute(question.question_id)}"><span class="learning-label">验收问题 · </span>${escapeHtml(question.prompt)}</label>
+              <textarea id="answer-${escapeAttribute(question.question_id)}" data-question-id="${escapeAttribute(question.question_id)}" rows="4" placeholder="用你自己的话解释，并尽量引用具体调用链。"></textarea>
+              ${assessment ? `<div class="assessment ${assessment.status.toLowerCase()}">
+                <strong>${escapeHtml(statusLabel(assessment.status))}${assessment.score === null ? "" : ` · ${assessment.score} 分`}</strong>
+                <p>${escapeHtml(assessment.feedback)}</p>
+              </div>` : ""}
+            </div>`;
+          }).join("")}
           <span class="learning-evidence">${escapeHtml((unit.evidence_ids || []).join(", "))}</span>
         </article>`;
       }).join("") || emptyResult("没有生成基于源码证据的学习单元。")}
+    </div>
+    <div class="review-actions">
+      <span>提交后会保留本次记录；再次作答不会覆盖历史。</span>
+      <button class="primary-button" type="button" data-action="submit-review">提交答案并评审</button>
     </div>`;
 }
 
@@ -384,7 +456,9 @@ function renderRequestFailure(error) {
 }
 
 function resetWorkspace() {
+  clearTimeout(state.pollTimer);
   stopElapsedTimer();
+  state.run = null;
   state.report = null;
   state.relativePath = "";
   elements.welcome.classList.remove("hidden");
@@ -397,28 +471,33 @@ function resetWorkspace() {
   setRunState("idle", "空闲");
 }
 
-function rememberRun(report) {
-  const item = {
-    id: report.report_id,
-    repository: report.repository_name,
-    status: report.status,
-    generatedAt: report.generated_at,
-  };
-  state.recentRuns = [item, ...state.recentRuns.filter((run) => run.id !== item.id)].slice(0, 7);
+async function loadRecentRuns() {
   try {
-    localStorage.setItem("vibeproof.recentRuns", JSON.stringify(state.recentRuns));
-  } catch (_) {
-    // Recent-run history is optional; a blocked localStorage must not affect takeover.
+    const response = await fetch("/api/v1/runs?limit=12");
+    const body = await parseResponse(response);
+    if (!response.ok) throw new Error(body.detail || "无法读取历史任务");
+    state.recentRuns = body;
+    renderRecentRuns();
+  } catch (error) {
+    elements.recentRuns.innerHTML = `<p class="sidebar-empty">${escapeHtml(error.message)}</p>`;
   }
-  renderRecentRuns();
 }
 
-function loadRecentRuns() {
+async function openRecentRun(event) {
+  const button = event.target.closest("[data-run-id]");
+  if (!button) return;
   try {
-    const value = JSON.parse(localStorage.getItem("vibeproof.recentRuns") || "[]");
-    return Array.isArray(value) ? value.slice(0, 7) : [];
-  } catch (_) {
-    return [];
+    const response = await fetch(`/api/v1/runs/${encodeURIComponent(button.dataset.runId)}`);
+    const body = await parseResponse(response);
+    if (!response.ok) throw new Error(body.detail || "无法打开历史任务");
+    clearTimeout(state.pollTimer);
+    applyRun(body);
+    if (["PENDING", "RUNNING"].includes(body.status)) {
+      startElapsedTimer();
+      pollRun(body.run_id);
+    }
+  } catch (error) {
+    showToast(error.message);
   }
 }
 
@@ -427,11 +506,85 @@ function renderRecentRuns() {
     elements.recentRuns.innerHTML = `<p class="sidebar-empty">完成接管后会显示在这里。</p>`;
     return;
   }
-  elements.recentRuns.innerHTML = state.recentRuns.map((run, index) => `
-    <div class="recent-run ${index === 0 ? "active" : ""}">
-      <strong>${escapeHtml(run.repository)}</strong>
-      <span>${escapeHtml(statusLabel(run.status))} · ${formatDate(run.generatedAt)}</span>
-    </div>`).join("");
+  elements.recentRuns.innerHTML = state.recentRuns.map((run) => `
+    <button class="recent-run ${run.run_id === state.run?.run_id ? "active" : ""}" type="button" data-run-id="${escapeAttribute(run.run_id)}">
+      <strong>${escapeHtml(run.repository_name)}</strong>
+      <span>${escapeHtml(statusLabel(run.status))} · ${formatDate(run.updated_at)}</span>
+    </button>`).join("");
+}
+
+async function handleResultAction(event) {
+  const action = event.target.closest("[data-action]")?.dataset.action;
+  if (!action || !state.run) return;
+  if (action === "submit-review") await submitReview();
+  if (action === "retry-learning") await retryStage("learning");
+  if (action === "retry-runtime") await retryStage("runtime");
+  if (action === "delete-run") await deleteCurrentRun();
+}
+
+async function submitReview() {
+  const button = elements.resultContent.querySelector('[data-action="submit-review"]');
+  const answers = [...elements.resultContent.querySelectorAll("[data-question-id]")].map((field) => ({
+    question_id: field.dataset.questionId,
+    answer: field.value.trim(),
+  }));
+  button.disabled = true;
+  button.textContent = "评审中…";
+  try {
+    const payload = {
+      answers,
+      provider: state.run.configuration.provider,
+      model: state.run.configuration.model,
+    };
+    if (!payload.model) delete payload.model;
+    const response = await fetch(`/api/v1/runs/${encodeURIComponent(state.run.run_id)}/review`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const body = await parseResponse(response);
+    if (!response.ok) throw new Error(body.detail || "答案评审失败");
+    const refreshed = await fetch(`/api/v1/runs/${encodeURIComponent(state.run.run_id)}`);
+    applyRun(await parseResponse(refreshed));
+    showToast("本轮答案和证据化评审已保存");
+  } catch (error) {
+    showToast(error.message);
+    button.disabled = false;
+    button.textContent = "提交答案并评审";
+  }
+}
+
+async function retryStage(stage) {
+  try {
+    const response = await fetch(`/api/v1/runs/${encodeURIComponent(state.run.run_id)}/retry`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ stage }),
+    });
+    const body = await parseResponse(response);
+    if (!response.ok) throw new Error(body.detail || "阶段重试失败");
+    startElapsedTimer();
+    applyRun(body);
+    await pollRun(body.run_id);
+  } catch (error) {
+    showToast(error.message);
+  }
+}
+
+async function deleteCurrentRun() {
+  if (!window.confirm("删除这条本地接管记录？源码仓库不会被修改。")) return;
+  try {
+    const response = await fetch(`/api/v1/runs/${encodeURIComponent(state.run.run_id)}`, { method: "DELETE" });
+    if (!response.ok) {
+      const body = await parseResponse(response);
+      throw new Error(body.detail || "删除失败");
+    }
+    resetWorkspace();
+    await loadRecentRuns();
+    showToast("历史记录已删除");
+  } catch (error) {
+    showToast(error.message);
+  }
 }
 
 function setRunState(kind, label) {
@@ -481,12 +634,18 @@ function stageLabel(stage) {
 
 function statusLabel(status) {
   const labels = {
+    PENDING: "等待中",
+    RUNNING: "运行中",
     COMPLETED: "已完成",
     PARTIAL: "部分完成",
     FAILED: "失败",
     SNAPSHOT_CHANGED: "源码快照已变化",
     PLANNED: "已规划",
     PASSED: "已通过",
+    ANSWERED: "已掌握",
+    NEEDS_IMPROVEMENT: "需要改进",
+    NOT_ASSESSED: "未评分",
+    REJECTED: "评审被拒绝",
   };
   return labels[status] || titleCase(status);
 }

@@ -22,6 +22,7 @@
 - `runtime.py`：运行计划、执行证据和运行验证报告。
 - `takeover.py`：完整接管流程的阶段记录和汇总报告。
 - `evaluation.py`：Eval 用例、指标、模型调用摘要和评估报告。
+- `run.py`：Web 后台任务、非敏感运行配置、任务摘要和多轮学习记录。
 - `__init__.py`：统一导出公共模型，让业务模块不需要记住具体模型文件。
 
 ### `repository/` 仓库证据能力
@@ -31,6 +32,7 @@
 - `store.py`：通过 SQLite 保存和检索快照绑定的证据，实现 Repository 模式。
 - `evidence_aliases.py`：在模型使用的短证据句柄和数据库完整 chunk ID 之间做严格转换。
 - `learning_evidence.py`：在有限预算内为 Tutor 选择代表性学习证据。
+- `run_store.py`：用独立 JSON 文件原子保存、恢复、列出和删除 Web Run。
 
 ### `llm/` 模型边界
 
@@ -53,6 +55,7 @@
 - `takeover.py`：`TakeoverCoordinator` 依次协调扫描、索引、分析、教学、运行验证和报告产物。
 - `evaluation.py`：执行确定性质量门槛，区分 Agent 失败与“如实发现目标缺陷”。
 - `quiz.py`：创建答题模板并严格读取报告与提交文件。
+- `web_runs.py`：在本地后台线程运行接管、写入真实阶段检查点，并处理定向重试和学习评审。
 
 ### `reports/` 展示层
 
@@ -71,7 +74,7 @@
 
 - `index.html`：页面结构。
 - `styles.css`：白色主题与布局。
-- `app.js`：读取服务端模型就绪状态，调用 Takeover API，并渲染 Agent 活动、检索轨迹和证据。
+- `app.js`：创建并轮询后台 Run，恢复历史，提交答题，并渲染 Agent 活动、检索轨迹和证据。
 - `favicon.svg`：站点图标。
 
 ## `tests/` 测试结构

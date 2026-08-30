@@ -10,6 +10,7 @@ from vibeproof.config import ConfigurationError, Settings
 def test_settings_loads_application_environment(monkeypatch) -> None:
     monkeypatch.setenv("VIBEPROOF_WORKSPACE_ROOT", "D:/repositories")
     monkeypatch.setenv("VIBEPROOF_DATABASE", "state/evidence.sqlite3")
+    monkeypatch.setenv("VIBEPROOF_RUNS_DIRECTORY", "state/runs")
     monkeypatch.setenv("VIBEPROOF_AI_PROVIDER", "OPENAI-COMPATIBLE")
     monkeypatch.setenv("VIBEPROOF_AI_MODEL", "test-model")
     monkeypatch.setenv("VIBEPROOF_AI_BASE_URL", "https://models.example/v1")
@@ -20,6 +21,7 @@ def test_settings_loads_application_environment(monkeypatch) -> None:
 
     assert settings.workspace_root == Path("D:/repositories")
     assert settings.database == Path("state/evidence.sqlite3")
+    assert settings.runs_directory == Path("state/runs")
     assert settings.ai_provider == "openai-compatible"
     assert settings.ai_model == "test-model"
     assert settings.ai_base_url == "https://models.example/v1"

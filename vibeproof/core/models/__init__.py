@@ -62,6 +62,13 @@ from vibeproof.core.models.repository import (
     SourceIndexSummary,
     SourceSymbol,
 )
+from vibeproof.core.models.run import (
+    LearningAttempt,
+    WebRunConfiguration,
+    WebRunRecord,
+    WebRunStatus,
+    WebRunSummary,
+)
 from vibeproof.core.models.runtime import CommandPlan, RuntimeEvidence, RuntimeVerificationReport
 from vibeproof.core.models.takeover import Evidence, RepositorySummary, TakeoverReport, TakeoverStep
 
@@ -99,6 +106,7 @@ __all__ = [
     "LearningPlan",
     "LearningPlanDraft",
     "LearningPlanStatus",
+    "LearningAttempt",
     "LearningProgress",
     "LearningUnitDraft",
     "ModelCallSummary",
@@ -125,4 +133,8 @@ __all__ = [
     "TakeoverStatus",
     "TakeoverStep",
     "VerificationStatus",
+    "WebRunConfiguration",
+    "WebRunRecord",
+    "WebRunStatus",
+    "WebRunSummary",
 ]
